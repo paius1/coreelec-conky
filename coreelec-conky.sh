@@ -10,7 +10,7 @@
 #          [e] network essid  [q] wireless quality  [i] lan address
 #          [r] network region [x] public ip         [s] network up/down speed
 #          [d] disk i/o       [f] mounted filesystems, free space, & graph of usage
-#          [p] processes pid %cpu %mem command (sorted w/ SORT=pcpu|pmem)
+#          [p] processes command pid %cpu %mem (sorted w/ SORT=%CPU|%MEM)
 #
 #######################
 # Ꜿ plgroves gmail nov 2020
