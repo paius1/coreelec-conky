@@ -1,0 +1,63 @@
+conky.config = {
+-- -- Conky settings -- #
+	background = false,
+--  set to 1 for odd intervals -- 
+	update_interval = 1,
+	double_buffer = true,
+
+-- -- Window specifications -- #
+
+	own_window_class = 'coreelec',
+	own_window = true,
+	own_window_type = 'desktop',
+	own_window_hints = 'undecorated,sticky,skip_taskbar,skip_pager,below',
+	own_window_argb_visual = true,
+
+	own_window_transparent = true,
+            -- OR --
+-- 	own_window_argb_value = 150,
+-- 	own_window_color = '#000000',
+
+	border_inner_margin = 0,
+	border_outer_margin = 0,
+
+-- Graphics settings -- #
+	draw_shades = true,
+	default_shade_color = '#000000',
+	draw_outline = false,
+	default_outline_color = '#000000',
+	draw_borders = false,
+	draw_graph_borders = false,
+    show_graph_range = false,
+    show_graph_scale = false,
+
+-- Text settings -- #
+	font = 'Hack:size=10',
+    override_utf8_locale = true,
+    max_user_text = 65536,
+    text_buffer_size = 16384,
+	use_xft = true,
+	xftalpha = 1,
+	uppercase = false,
+
+-- Color settings -- #
+	default_color = '#45DFE8',
+	color1 = '#06939B',
+    color2 = '#45DFE8',
+    color3 = '#ADD8E6',
+
+-- Alignment settings -- #
+	alignment = 'top_left',
+	gap_x = 25,
+	gap_y = 32,
+
+	minimum_width = 290,
+	maximum_width = 290,
+
+--  This should be set to ensure all lines visible !horiz--
+	minimum_height = 990,
+};
+
+conky.text = [[
+${texecpi 4 ssh coreelec /opt/bin/coreelec-conky.sh -ocltumeqirxsdfp}
+]];
