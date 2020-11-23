@@ -115,20 +115,17 @@
 
   # check for entware packages or install
     install="/opt/bin/opkg install "
-    declare -A eXECUTALBES
-    eXECUTALBES=( [bash]="${install} bash" [dig]="${install} bind-dig" [date]="${install} coreutils-date" [df]="${install} coreutils-df" [ip]="${install} net-tools" [sort]="${install} coreutils-sort" [stat]="${install} coreutils-stat" [top]="${install} procps-ng-top")
-
-    for executable in "${!eXECUTALBES[@]}"
-    do comm=$(ssh root@"${HOST}" "PATH=/opt/bin:/opt/sbin:$PATH command -v ${executable}")
-
-        if [[ "${comm%/*}" =~ ^/opt ]]
-        then echo -ne " found ${comm##*/} from entware   \r" 
-        else echo -e " ${comm##*/} not in path       \n   installing...\n"
-             ssh root@"${HOST}" "${eXECUTALBES[${comm##*/}]}" >/dev/null 2>&1
-             echo
-        fi
+    Packages=(coreutils-df coreutils-stat bind-dig procps-ng-watch ip-full bash coreutils-sort coreutils-date procps-ng-top)
+    mapfile -t Installed < <(ssh root@"${HOST}" /opt/bin/opkg list-installed | awk '{print $1}')
+    for package in "${Packages[@]}"; do
+     if [[  " ${Installed[@]} " =~ " $package " ]]
+     then echo -ne " found ${package} from entware          \r"; sleep 0.5
+     else echo -e " ${package} not found ... installing\n"
+          ssh root@"${HOST}" "${install} $package" >/dev/null
+          echo
+     fi
     done
-    echo -e "\rAll packages installed     \n"
+    echo -e "\rAll packages installed            \n"
 
   # can ssh w/o password, have entware packages installed
    # copy script to /storage/.opt/bin, chmod +x 
