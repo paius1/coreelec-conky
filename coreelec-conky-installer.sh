@@ -30,21 +30,26 @@
 
            KODIS=($(gssdp-discover -i "$MY_INTERFACE" --timeout=3 --target=urn:schemas-upnp-org:device:MediaRenderer:1|grep Location|sed 's:^.*/\([0-9]*\.[0-9]*\.[0-9]*\.[0-9]*\).*:\1:'))
 
-           echo -e "\n** Select Destination *******"
+           if [ "${#KODIS[@]}" -gt 1 ]
+           then echo -e "\n** Select Destination *******"
+                for kodi in "${KODIS[@]}"
+                do  HOSTS+=($(grep -oP "$kodi[[:space:]]+\K[[:alnum:]]+" /etc/hosts))
+                    ((i++))
+                    echo "${i}) ${HOSTS[((i-1))]} ${kodi}"
+                done
+     
+                echo
+                read -rp "Choose 1 of ($i): " n
+                if [[ ! "${n}" =~ ^[0-9]+$ ]]
+                then echo "Invalid entry... Goodbye!"; exit 1
+                elif [[ "${n}" -lt 1 || "${n}" -gt "${i}" ]]
+                then echo "Invalid entry... Goodbye!"; exit
+                fi
+           else HOSTS=($(grep -oP "${KODIS[0]}[[:space:]]+\K[[:alnum:]]+" /etc/hosts))
+                n=1
+                echo "${HOSTS[0]} ${KODIS[@]}"
+           fi
 
-           for kodi in "${KODIS[@]}"; do
-               HOSTS+=($(grep -oP "$kodi[[:space:]]+\K[[:alnum:]]+" /etc/hosts))
-               ((i++))
-               echo "${i}) ${HOSTS[((i-1))]} ${kodi}"
-           done
-
-           echo
-           read -rp "Choose 1-($i): " n
-           if [[ ! "${n}" =~ ^[0-9]+$ ]]
-           then echo "Invalid entry... Goodbye!"; exit; fi
-           if [[ "${n}" -lt 1 || "${n}" -gt "${i}" ]]
-           then echo "Invalid entry... Goodbye!"; exit; fi
-           exit 0
        else # manual input of host
            echo
            read -rp "enter coreELEC ip address/hostname " ip_host
@@ -53,12 +58,10 @@
            re+='0*(1?[0-9]{1,2}|2([0-4][0-9]|5[0-5]))$'
 
            if [[ $ip_host =~ $re ]]
-           then # is a dot.url
-               timeout 2 ping -c 1 "$ip_host" >/dev/null 2>&1 ||
-                 { echo "Can't reach ${ip_host} try again"; exit 1; }
-           else # is a name or invalid dot.url
-               timeout 2 ping -c 1 "$ip_host" >/dev/null 2>&1 ||
-                 { echo "Can't reach ${ip_host} try again"; exit 1; }
+           then timeout 2 ping -c 1 "$ip_host" >/dev/null 2>&1 ||
+                { echo "Can't reach ${ip_host} try again"; exit 1; }
+           else timeout 2 ping -c 1 "$ip_host" >/dev/null 2>&1 ||
+                { echo "Can't reach ${ip_host} try again"; exit 1; }
            fi
            HOSTS=($ip_host)
            n=1
@@ -71,7 +74,8 @@
   echo -e "\nChecking ${HOST}"
 
   # can we ssh with passkey, do we need authentication?
-    ssh -vvv -o PasswordAuthentication=no  -o BatchMode=yes root@"${HOST}" 2>&1 exit | grep -q "Next authentication method:" 
+    ssh -vvv -o PasswordAuthentication=no  -o BatchMode=yes root@"${HOST}" 2>&1 exit |
+             grep -q "Next authentication method:" 
 
     case "${PIPESTATUS[0]}" in
         0) # can connect
@@ -97,11 +101,10 @@
   echo -e "\nInstalling to ${HOST}"
   
   # check for entware and intalled packages
-    if ssh root@"${HOST}" '[ -f /storage/.opt/bin/opkg ]'; then
-        echo -e "\n entware is available"
-    else
-        echo -e "\n please install entware\n  https://discourse.coreelec.org/t/what-is-entware-and-how-to-install-uninstall-it/1149"
-        exit 1
+    if ssh root@"${HOST}" '[ -f /storage/.opt/bin/opkg ]'
+    then echo -e "\n entware is available"
+    else echo -e "\n please install entware\n  https://discourse.coreelec.org/t/what-is-entware-and-how-to-install-uninstall-it/1149"
+         exit 1
     fi
 
   # check for entware packages or install
@@ -109,15 +112,14 @@
     declare -A eXECUTALBES
     eXECUTALBES=( [bash]="${install} bash" [dig]="${install} bind-dig" [date]="${install} coreutils-date" [df]="${install} coreutils-df" [ip]="${install} net-tools" [sort]="${install} coreutils-sort" [stat]="${install} coreutils-stat" [top]="${install} procps-ng-top")
 
-    for executable in "${!eXECUTALBES[@]}"; do
-        comm=$(ssh root@"${HOST}" "PATH=/opt/bin:/opt/sbin:$PATH command -v ${executable}")
+    for executable in "${!eXECUTALBES[@]}"
+    do comm=$(ssh root@"${HOST}" "PATH=/opt/bin:/opt/sbin:$PATH command -v ${executable}")
 
-        if [[ "${comm%/*}" =~ ^/opt ]]; then 
-            echo -ne " found ${comm##*/} from entware   \r" 
-        else
-            echo -e " ${comm##*/} not in path       \n   installing...\n"
-            ssh root@"${HOST}" "${eXECUTALBES[${comm##*/}]}" >/dev/null 2>&1
-            echo
+        if [[ "${comm%/*}" =~ ^/opt ]]
+        then echo -ne " found ${comm##*/} from entware   \r" 
+        else echo -e " ${comm##*/} not in path       \n   installing...\n"
+             ssh root@"${HOST}" "${eXECUTALBES[${comm##*/}]}" >/dev/null 2>&1
+             echo
         fi
     done
     echo -e "\rAll packages installed     \n"
@@ -128,24 +130,19 @@
 
   if ssh root@"${HOST}" '[ -r /storage/.opt/bin/coreelec-conky.sh ]'
   then # file exists
-      read -rp "file exists, replace [y/N] " reply
-      reply=${reply:-N}
-      if [[ "${reply}" = +(N*|n*) ]]
-      then
-         echo "exiting... Goodbye!"
-         exit 1
-      elif [[ "${reply}" = +(Y*|y*) ]]
-      then
-          echo "moving existing script to coreelec-conky.sh.bak"
-          ssh root@"${HOST}" mv /storage/.opt/bin/coreelec-conky.sh /storage/.opt/bin/coreelec-conky.sh.bak
-      else
-          echo " Invalid reply... Goodbye!"
-          exit 1
-      fi
+         read -rp "file exists, replace [y/N] " reply
+         reply=${reply:-N}
+         if [[ "${reply}" = +(N*|n*) ]]
+         then echo "exiting... Goodbye!"; exit 1
+         elif [[ "${reply}" = +(Y*|y*) ]]
+         then echo "moving existing script to coreelec-conky.sh.bak"
+              ssh root@"${HOST}" mv /storage/.opt/bin/coreelec-conky.sh /storage/.opt/bin/coreelec-conky.sh.bak
+         else echo " Invalid reply... Goodbye!"; exit 1
+         fi
   else # copy script and make executable 
-      echo "copying and chmoding file"
-      scp ./coreelec-conky.sh  root@"${HOST}":/storage/.opt/bin/
-      ssh root@"${HOST}" 'chmod +x /storage/.opt/bin/coreelec-conky.sh'
+         echo "copying and chmoding file"
+         scp ./coreelec-conky.sh  root@"${HOST}":/storage/.opt/bin/
+         ssh root@"${HOST}" 'chmod +x /storage/.opt/bin/coreelec-conky.sh'
   fi
 
  # copy conky config to home/.conky
