@@ -115,7 +115,7 @@
 
   # check for entware packages or install
     install="/opt/bin/opkg install "
-    Packages=(coreutils-df coreutils-stat bind-dig procps-ng-watch ip-full bash coreutils-sort coreutils-date procps-ng-top)
+    Packages=(coreutils-df coreutils-stat bind-dig ip-full bash coreutils-sort coreutils-date procps-ng-top)
     mapfile -t Installed < <(ssh root@"${HOST}" /opt/bin/opkg list-installed | awk '{print $1}')
     for package in "${Packages[@]}"; do
      if [[  " ${Installed[@]} " =~ " $package " ]]
