@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+# simple installer
+# checks for coreelec host
+# exitence of entware environment and needed packages
+# copies script to /opt/bin
+# copies conky config to ~/.conky/
+# C pl groves gmail Nov 2020
 
   # check whoami, !root
   if [ "$EUID" -eq 0 ]
