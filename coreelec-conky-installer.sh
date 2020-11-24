@@ -21,9 +21,8 @@
       { echo "Can't find conky config"; exit 1; }
     echo "found conky config"
 
-  # argument given then ping to see if it's a host
   if timeout 1 ping -c 1 "$1" >/dev/null 2>&1
-  then
+  then # argument given then ping to see if it's a host
       HOSTS=("$1")
       n=1
   else
@@ -115,7 +114,7 @@
 
   # check for entware packages or install
     install="/opt/bin/opkg install "
-    Packages=(coreutils-df coreutils-stat bind-dig procps-ng-watch ip-full bash coreutils-sort coreutils-date procps-ng-top)
+    Packages=(bash bind-dig coreutils-df coreutils-sort coreutils-stat procps-ng-top)
     mapfile -t Installed < <(ssh root@"${HOST}" /opt/bin/opkg list-installed | awk '{print $1}')
     for package in "${Packages[@]}"; do
      if [[  " ${Installed[@]} " =~ " $package " ]]
