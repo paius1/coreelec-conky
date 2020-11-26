@@ -138,15 +138,15 @@
          then echo "exiting... Goodbye!"; exit 1
          elif [[ "${reply}" = +(Y*|y*) ]]
          then echo "moving existing script to coreelec-conky.sh.bak"
-              #ssh root@"${HOST}" mv /storage/.opt/bin/coreelec-conky.sh /storage/.opt/bin/coreelec-conky.sh.bak
+              ssh root@"${HOST}" mv /storage/.opt/bin/coreelec-conky.sh /storage/.opt/bin/coreelec-conky.sh.bak
          else echo " Invalid reply... Goodbye!"; exit 1
          fi
   fi
 
  # copy script and make executable 
    echo "copying and chmoding file"
-   #scp ./coreelec-conky.sh  root@"${HOST}":/storage/.opt/bin/
-   #ssh root@"${HOST}" 'chmod +x /storage/.opt/bin/coreelec-conky.sh'
+   scp ./coreelec-conky.sh  root@"${HOST}":/storage/.opt/bin/
+   ssh root@"${HOST}" 'chmod +x /storage/.opt/bin/coreelec-conky.sh'
 
  # copy conky config to home/.conky
    [ -d ~/.conky ] || { echo "creating directory ~/.conky/"; mkdir ~/.conky; }
