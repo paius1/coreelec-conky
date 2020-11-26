@@ -107,7 +107,7 @@
   
   # check for entware and intalled packages
     if ssh root@"${HOST}" '[ -f /storage/.opt/bin/opkg ]'
-    then echo -e "\n entware is available"
+    then echo -e "\nentware is available"
     else echo -e "\n please install entware\n  https://discourse.coreelec.org/t/what-is-entware-and-how-to-install-uninstall-it/1149"
          exit 1
     fi
@@ -124,7 +124,7 @@
           echo
      fi
     done
-    echo -e "\rAll packages installed            \n"
+    echo -e "\r All packages installed            \n"
 
   # can ssh w/o password, have entware packages installed
    # copy script to /storage/.opt/bin, chmod +x 
@@ -138,19 +138,20 @@
          then echo "exiting... Goodbye!"; exit 1
          elif [[ "${reply}" = +(Y*|y*) ]]
          then echo "moving existing script to coreelec-conky.sh.bak"
-              ssh root@"${HOST}" mv /storage/.opt/bin/coreelec-conky.sh /storage/.opt/bin/coreelec-conky.sh.bak
+              #ssh root@"${HOST}" mv /storage/.opt/bin/coreelec-conky.sh /storage/.opt/bin/coreelec-conky.sh.bak
          else echo " Invalid reply... Goodbye!"; exit 1
          fi
-  else # copy script and make executable 
-         echo "copying and chmoding file"
-         scp ./coreelec-conky.sh  root@"${HOST}":/storage/.opt/bin/
-         ssh root@"${HOST}" 'chmod +x /storage/.opt/bin/coreelec-conky.sh'
   fi
 
+ # copy script and make executable 
+   echo "copying and chmoding file"
+   #scp ./coreelec-conky.sh  root@"${HOST}":/storage/.opt/bin/
+   #ssh root@"${HOST}" 'chmod +x /storage/.opt/bin/coreelec-conky.sh'
+
  # copy conky config to home/.conky
-   [ -d ~/.conky ] || mkdir ~/.conky
+   [ -d ~/.conky ] || { echo "creating directory ~/.conky/"; mkdir ~/.conky; }
    cp ./coreelec-conkyrc ~/.conky/
  # run conky 
    echo " Now run: conky -c ~/.conky/coreelec-conkyrc"
-
+  conky -c ~/.conky/coreelec-conkyrc
   exit 0

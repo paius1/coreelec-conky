@@ -48,16 +48,16 @@ conky.config = {
 
 -- Alignment settings -- #
 	alignment = 'top_left',
-	gap_x = 25,
-	gap_y = 32,
+	gap_x = 20,
+	gap_y = 40,
 
 	minimum_width = 290,
 	maximum_width = 290,
 
 --  This should be set to ensure all lines visible !horiz--
-	minimum_height = 990,
+	minimum_height = 690,
 };
 
 conky.text = [[
-${texecpi 4 ssh coreelec /opt/bin/coreelec-conky.sh -ocltumeqirxsdfp}
+${texecpi 10 ssh coreelec /opt/bin/coreelec-conky.sh -ocltumeqirxsdfp}
 ]];
