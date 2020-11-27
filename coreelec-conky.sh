@@ -95,7 +95,7 @@ tss=$(/usr/bin/date +%s%N)
     COLOR1="\${color #06939B}"; COLOR2="\${color #34BDC4}"
       COLOR3="\${color #9FEEF3}"; COLOR_units="\${color grey70}"
   # a monospace font found on computer running conky
-  # run fc-list :spacing=100 n.b some balk @ some unicode characters
+  # run fc-list :spacing=100 ( n.b some fonts are limited )
     font_family="Hack"
     FONT1="\${font ${font_family}:size=9}"
     FONT2="\${font ${font_family}:size=8}"
@@ -129,7 +129,7 @@ LINE_length2=57
     if [[ "${@: -1}" == +(le*|r*|c*|h*) ]]; then ALIGN="${@: -1}"; set -- "${@:1:$(($#-1))}"; fi
     if [[ "${@: -1}" == +(lo*|s*) ]]; then FORMAT="${@: -1}"; set -- "${@:1:$(($#-1))}"; fi
 #
-# pass - with no options in conkyrc, add options here
+# pass '-' with no options in conkyrc, add options here
 # code in conkyrc and delete? see note at top on how
 #
 if [[ ${#1} -eq 1 ]]
@@ -140,6 +140,7 @@ then # cascading
 set -- "${@/%/ocltumeqirxsdfp}"
 #FORMAT=longest
 ALIGN=left
+
 else # horizontal
 set -- "${@/%/cltumeqrxsfdp}"
 #FORMAT=longer
@@ -147,10 +148,12 @@ fi
 
 fi
 #
+# for benchmarking script
+TIME_log="/tmp/time-${ALIGN:0:1}"
+#
   # add some space to INDENT2 for left justify
     [[ "${ALIGN}" =~ ^l ]] && INDENT2=$((INDENT2+HALFSPACE1*5))
   # cascading conky
-    #="goto"
     GOTO="\${goto "
     VOFFSET="\${voffset "
   # left hr since conky can't define hr width
@@ -236,16 +239,49 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
  }
  export -f is_HORIZ_
 
-  function is_CASCADING_() {
-      local align=$1
-      local spacing=$2
-      local label=$3
+  function justify_() { # ALIGN string on line_length
+                        # print newline if !horizontal
+     local align="$1"
+      local string="$2"
+      local line_length="$3"
+      local length_text padding newline
+      
+      case "${align}" in
 
-      ! is_HORIZ_ "${align}" \
-      && echo -n "\${voffset ${spacing}}${label}"
-  return 0
+          r*|c*)
+                 # remove any leading & trailing whitespaces
+                   string=$(sed -e 's/}[ \t]*/}/' -e 's/^[[:space:]]*//' \
+                                -e 's/[[:space:]]*$//' <<< "${string}")
+
+                 # length of string stripped of conky formating
+                   length_text=$(($(sed -e "s/[\${][^}]*[}]//g" <<< \
+                                        "${string}" | wc -c)-1))
+
+                 # check length of line v length of text
+                   [[ "${length_text}" -gt "${line_length}" ]] \
+                                        && { echo "length: ${line_length} < string: ${length_text}";
+                        return 2; }
+
+                 # spaces to pad string
+                   padding=$((line_length-length_text))
+                   [[ "${align}" =~ ^c ]] \
+                                 && padding=$(((padding+2/2)/2+1))
+
+             ;&
+          l*)    # Just add newline to printf
+                   newline=$'\n'
+            ;&
+          *)     # printf ${padding}${string}${newline}
+                 # remove any leading & trailing whitespaces for horizontal
+                   string=$(sed -e 's/^[[:space:]]*//' \
+                                -e 's/[[:space:]]*$//' <<< "${string}")
+                   printf "%$((padding+${#string}))s%s" "${string}" "${newline}"
+            ;;
+
+        esac
+    return 0
  }
- export -f is_CASCADING_
+ export -f justify_
 
   function heading_() {
       local label=$1
@@ -257,52 +293,65 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
       local spacing=$7
 
       echo -n  "${conky_object} ${position}}${color}${font}"
-      is_CASCADING_ "${align}" "${spacing}" "${label}"
+      is_HORIZ_ "${align}" \
+                || echo -n "\${voffset ${spacing}}${label}"
+      #is_CASCADING_ "${align}" "${spacing}" "${label}"
   return 0      
  }
  export -f heading_
 
-  function justify_() { # Pad text ($1) to ALIGN ($2) on line_length ($3)
-                        # print newline if !horizontal
-      local string length_text padding newline
-      string="$2"
+  function bash_REMATCH_() { # Return specific data in matching line of file
+      local output           # or command output; no '(capture)+' to count match lines
+      local file_comm="$1"
+      pattern=$2
+      output="/tmp/${1##*/}-${ALIGN}"
 
-      case "${1}" in
-
-          r*|c*) # Pad string to justify
-                 # remove any leading & trailing whitespaces
-                   string=$(sed -e 's/}[ \t]*/}/' -e 's/^[[:space:]]*//' \
-                                -e 's/[[:space:]]*$//' <<< "${2}")
-
-                 # length of string stripped of conky formating
-                   length_text=$(($(sed -e "s/[\${][^}]*[}]//g" <<< \
-                                        "${string}" | wc -c)-1))
-
-                 # check length
-                   [[ "${length_text}" -gt "${3}" ]] \
-                                                 && { echo "length: ${3} < string: ${length_text}";
-                        return 2; }
-
-                 # spaces to pad string
-                   padding=$(($3-length_text)) # half for center pad
-                   [[ "${1}" =~ ^c ]] \
-                             && padding=$(((padding+2/2)/2+1))
-
-             ;&
-          l*)    # Just add newline to printf
-                   newline=$'\n'
-            ;&
-          *)     # printf $Ppadding}${string}${newline}
-                 # remove any leading & trailing whitespaces for horizontal
-                   string=$(sed -e 's/^[[:space:]]*//' \
-                                -e 's/[[:space:]]*$//' <<< "${string}")
-                   printf "%$((padding+${#string}))s%s" "${string}" "${newline}"
-            ;;
-
-        esac
-    return 0
+      if [[ "${file_comm}" =~ ip|if ]]
+      then # $1 is a command
+          while IFS= read -r line
+          do if [[ "${line}" =~ ${pattern} ]]
+             then echo "${BASH_REMATCH[1]}" \
+                       | tee -a "${output}"
+             fi
+          done < <(${file_comm})
+      else # $1 is a file clear to allow use of append
+          echo -n "" > "${output}"
+          while IFS= read -r line
+          do if [[ "${line}" =~ ${pattern} ]]
+             then echo "${BASH_REMATCH[1]}" \
+                       | tee -a "${output}"
+             fi
+          done < "${file_comm}"
+      fi
+  return 0
  }
- export -f justify_
+ export -f bash_REMATCH_
+
+  function cpu_PER100_() { # Get cpu stats
+        local cpu_Usage=("$@")
+        local ncore
+        ncores="$(((${#cpu_usage[@]}-2)/2))"
+        for ((core=0;core<="${ncores}";core++))
+        do awk '{S13+=$13;S2+=$2;S15+=$15;S4+=$4;S16+=$16;S5+=$5}END
+                {printf "%6.1f\n",
+                         (S13-S2+S15-S4)*100/(S13-S2+S15-S4+S16-S5);}' < \
+                <(printf '%s %s\n' \
+                         "${cpu_usage[$core]}" "${cpu_usage[$((core+ncores+1))]}")
+        done
+  return 0
+ }
+
+  function interval_() {
+      local start=$1
+      local file=$2
+      local now
+
+            now=$(/usr/bin/date +%s \
+                                | tee "${file:-/dev/null}")
+      echo $((now-start)) 
+  return 0
+ }
+ export -f interval_
 
   function check_IP_data_() { # Check if ip data file is/recent or create/update
         { is_READABLE_ "${1}" \
@@ -318,31 +367,6 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
   return 0
  }
  export -f check_IP_data_
-
-  function bash_REMATCH_() { # Return specific data in matching line of file
-      local output           # or command output; no '(capture)+' to count # of matches
-      output="/tmp/${1##*/}-${ALIGN}"
-
-      if [[ "${1}" =~ ip|if ]]
-      then # $1 is a command
-          while IFS= read -r line
-          do if [[ "${line}" =~ ${2} ]]
-             then echo "${BASH_REMATCH[1]}" \
-                       | tee -a "${output}"
-             fi
-          done < <(${1})
-      else # $1 is a file clear to allow use of append
-          echo -n "" > "${output}"
-          while IFS= read -r line
-          do if [[ "${line}" =~ ${2} ]]
-             then echo "${BASH_REMATCH[1]}" \
-                       | tee -a "${output}"
-             fi
-          done < "${1}"
-      fi
-  return 0
- }
- export -f bash_REMATCH_
 
   function is_EMPTY_() {
       local var=$1
@@ -371,18 +395,6 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
       [[ -r $file ]]
  }
  export -f is_READABLE_
-
-  function interval_() {
-      local start=$1
-      local file=$2
-      local now
-            now=$(/usr/bin/date +%s \
-                                | tee "${file:-/dev/null}")
-      
-      echo $((now-start)) 
-  return 0
- }
- export -f interval_
 
   # horizontal conky
     if is_HORIZ_ "${ALIGN}"
@@ -435,15 +447,8 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                  <(cat "${cpu_stats:0: -1}"  2>/dev/null \
                  <(bash_REMATCH_ "${file}" "${match}" ))
 
-        # array of cpu usage since last run
-          mapfile -t pcpu < \
-                 <(for ((core=0;core<="${NCORES}";core++))
-                   do awk '{S13+=$13;S2+=$2;S15+=$15;S4+=$4;S16+=$16;S5+=$5}END
-                           {printf "%6.1f\n",
-                            (S13-S2+S15-S4)*100/(S13-S2+S15-S4+S16-S5);}' < \
-                          <(printf '%s %s\n' \
-                            "${cpu_usage[$core]}" "${cpu_usage[$((core+NCORES+1))]}")
-                   done)
+          mapfile -t pcpu < <(cpu_PER100_ "${cpu_usage}")
+
         # heterogenous cpu?
           HETEROGENEOUS=$( awk '/^CPU p/ {print $0}' /proc/cpuinfo \
                                | uniq \
@@ -921,6 +926,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                 done
                 [[ "${b}" -gt 0 ]] \
                            || { b=1; d=0; s=0; }
+                is_EMPTY_ "${d}" && d='0'
                 printf "%4d%s%.3s%s" "$b" "." "${d}" "${u}${S[${s}]}${p_u}"
             return 0; }
 
@@ -948,17 +954,17 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
             rxtx+=( $((((rawbytes[3]-rawbytes[1])+(dt/2))/dt)) )
 
             # to set max upper speed
-              net_up=/tmp/net_up net_down=/tmp/net_down
+              speed='/tmp/net-speed'
             # adjust scale for up speed
-              hi_up=$(< "${net_up}") \
+              hi_up=$(< "${speed}_up") \
                     || hi_up=1000
               [[ "${rxtx[1]}" -gt "${hi_up}" ]] \
-                               && echo "${rxtx[1]}">"${net_up}"
+                               && echo "${rxtx[1]}">"${speed}_up"
             # adjust scale for down speed
-              hi_dn=$(< "${net_down}") \
+              hi_dn=$(< "${speed}_down") \
                     || hi_dn=1000
               [[ "${rxtx[0]}" -gt "${hi_dn}" ]] \
-                               && echo "${rxtx[0]}">"${net_down}"
+                               && echo "${rxtx[0]}">"${speed}_down"
 
             # sublabel for conky (left|right|center) || horiz
               sublabel=( 'Up:' 'Dn:' )
@@ -986,53 +992,52 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
     d)                         # DISK I/O SPEEDS #
         heading_ "DISKS:" "${ALIGN}" "${GOTO}" "${INDENT1}" "${COLOR1}" "${FONT1}" "${SPACING}"
 
-            # variables for bash_REMATCH
-              file=/proc/diskstats
-              diskstats="/tmp/${file##*/}-${ALIGN}"
-              match='(^.*sd[a-z] .*|^.*blk0p2.*)'
-              diskstats_time="${diskstats}_time"
+            function diskstats_() {
+              local align=$1
+              local file stats match time
+                    file=/proc/diskstats
+                    stats="/tmp/diskstats-${ALIGN}"
+                    match='(^.*sd[a-z] .*|^.*blk0p2.*)'
+
+              is_READABLE_ "${stats}_time" \
+                  || { touch "${stats}_time";
+                      echo -n "" >  "${stats}"; }
+
+              mv "${stats}" "${stats:0: -1}" 
+              dt=$(interval_ $(<"${stats}_time") "${stats}_time")
+
+              (while IFS= read -r a <&3 && IFS= read -r b <&4
+               do echo "${a} ${b}"
+               done ) 3<"${stats:0: -1}"  4< <(bash_REMATCH_ "${file}" "${match}") \
+               | awk -v dt="${dt}" -v read="${read}" -v write="${write}" -v mb="${mb}" \
+                     '{read_start+=$6;read_end+=$20;write_start+=$10;write_end+=$24;i++}
+                       END
+                      {if (dt > 0 && i >= 2)
+                           printf "%8.3f \n%8.3f",
+                                  ((read_end-read_start)/dt)*512/1024^2,
+                                  ((write_end-write_start)/dt)*512/1024^2;
+                       else printf "\n";}'
+            }
+ 
+            mapfile -t diskio < <(diskstats_ "${ALIGN}")
 
             # variables for conky
               offset=0
               [[ "${ALIGN}" =~ ^c ]] \
                             && offset="${CHARACTER_width2}"
-              read="\${offset ${offset}}${COLOR2}${FONT1}"
-              write="${read}W${COLOR3}"
-              read+="R${COLOR3}"
+              begin="\${offset ${offset}}${COLOR2}${FONT1}"
+              write="${begin}W${COLOR3}"
+              read="${begin}R${COLOR3}"
               mb="\${offset $((HALFSPACE2*1))}${COLOR_units}${FONT2}"
               mb+="Mb\${offset -2}/\${offset -2}s "
               ! is_HORIZ_ "${ALIGN}" \
                  && mb+="\${voffset -1}"
 
-              { is_READABLE_ "${diskstats_time}" \
-                && last_TIME=$(<"${diskstats_time}"); } \
-                || rm "${diskstats}" 2>/dev/null
-
-            # mv /tmp/diskstats-? or creat it
-              mv "${diskstats}" "${diskstats:0: -1}" 2>/dev/null \
-                 || touch "${diskstats:0: -1}"
-
-            # time interval
-              dt=$(interval_ "${last_TIME}" "${diskstats_time}")
-
         echo -n  "${GOTO} ${INDENT2}}"
         [[ "${ALIGN}" =~ ^r ]] \
                       && echo -n "\${offset $((HALFSPACE2*6))}"
         justify_ "${ALIGN}" \
-                 "$( (while IFS= read -r a <&3 && IFS= read -r b <&4
-                      do echo "${a} ${b}"
-                      done) 3<"${diskstats:0: -1}" \
-                            4< <(bash_REMATCH_ "${file}" "${match}") \
-                         | awk -v dt="${dt}" -v read="${read}" \
-                               -v write="${write}" -v mb="${mb}" \
-                               '{read_start+=$6;read_end+=$20;
-                                 write_start+=$10;write_end+=$24;i++}
-                                 END
-                                {if (dt > 0 && i >= 2)
-                                     printf "%s%8.3f%s%s%8.3f%s",
-                                     read,((read_end-read_start)/dt)*512/1024^2,mb,
-                                     write,((write_end-write_start)/dt)*512/1024^2,mb;
-                                 else printf "\n";}')" \
+                 "${read}${diskio[0]}${mb}${write}${diskio[1]}${mb}" \
                  "$((LINE_length1-INDENT2/CHARACTER_width1))"
       ;;
 
@@ -1047,47 +1052,48 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                         || fs_data_age=$((now+FS_dt+1))
 
             # to shorten the list especially for horizontal format
-              skip_fs=( "flash" "" )
+              skip_target=( "flash" "" )
+#              skip_target=( "flash" "NEW_STUFF" "MOVIE+TV" )
 
             if [[ "$(interval_ "${fs_data_age}" )" -gt "${FS_dt}" \
                || $(is_NOT_file_ "${file}") ]]
-            then # read current data and write to file
+            then # read current data and tee to file
 
-                # width of line in conky 'x' - location & length of FREE + space
+                # (width of line in conky 'x') - (location & length of FREE) + space
                   width=$((LINE_length1*CHARACTER_width1-INDENT1-(HALFSPACE1*47)))
 
-                { /opt/bin/df -lh \
-                  | /usr/bin/grep -E '^/dev/[s|m]' \
-                  | while read -r DEVICE SIZE USED FREE USE MOUNT
+                { /opt/bin/df -lh -x tmpfs -x devtmpfs -x squashfs -x iso9660 \
+                              --output=source,target,avail,used,pcent \
+                              | tail -n +2 \
+                  | while read -r SOURCE TARGET AVAIL USED PCENT
                     do
-                        filesystem="${MOUNT##*/}"
-                        [[ " ${skip_fs[*]} " =~ " ${filesystem} " ]] \
+                        target="${TARGET##*/}"
+                        [[ " ${skip_target[*]} " =~ " ${target} " ]] \
                                              && continue
        
-                        percent="${USE%?}"
+                        percent="${PCENT%?}"
                         [[ "${percent}" -lt 1 \
                         || "${percent}" -gt 100 ]] \
-                                         && percent=100
+                                         && percent=99
        
-                        if ! is_HORIZ_ "${ALIGN}"
-                        then # print a table
+                        if is_HORIZ_ "${ALIGN}"
+                        then # print linear
+        echo -n  "\${offset 6}${COLOR1}"
+        echo -n  "${target:0:8}"
+        echo -n  "\${color $(color_ "$((percent))" "$((100*COLOR))")}"
+        echo -n  "\${offset ${HALFSPACE1}}$(printf "%5s" "${AVAIL}") "
+                        else # print table
         echo -n  "${GOTO} $((INDENT1+(HALFSPACE1*3)))}${COLOR2}"
-        echo -n  "${filesystem:0:15}"
+        echo -n  "${target:0:15}"
         echo -n  "${GOTO} ${INDENT2}}${COLOR3}"
-        echo -n  "$(printf %18s "${FREE}")"
+        echo -n  "$(printf %18s "${AVAIL}")"
         echo -n  "${GOTO} $((INDENT2+19*CHARACTER_width1))}"
         echo -n  "\${color $(color_ "$((percent))" "$((100*COLOR))")}"
         echo -n  "\${execbar ${BAR_height},${width} echo ${percent%.*}}"
         echo -n  "${GOTO} $((INDENT2+18*CHARACTER_width1))}"
-        echo -n "\${offset $((width*${percent%.*}/100-CHARACTER_width1*4))}"
-        #echo -n  "\${color #0CEDF7}$(printf "%4s" "${USED}")"
-        echo -n  "\${color grey90}$(printf "%4s" "${USED}")"
+        echo -n "\${offset $((width*${percent%.*}/100-HALFSPACE1*6))}"
+        echo -n  "\${color $(color_ $((100-${percent%.*})) '100')}$(printf "%4s" "${USED}")"
         echo
-                        else # print in a line
-        echo -n  "\${offset 6}${COLOR1}"
-        echo -n  "${filesystem:0:8}"
-        echo -n  "\${color $(color_ "$((percent))" "$((100*COLOR))")}"
-        echo -n  "\${offset ${HALFSPACE1}}$(printf "%5s" "${FREE}") "
                         fi
                      done ## sort on percent remaining
                     } \
