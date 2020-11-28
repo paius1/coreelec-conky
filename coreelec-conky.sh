@@ -133,9 +133,7 @@ if [[ ! "${ALIGN}" =~ ^h ]]
 then # cascading
 set -- "${@/%/ocltumeqirxsdfp}"
 # for benchmarking
-#set -- "${@/%/v}"
-FORMAT=long
-ALIGN=left
+set -- "${@/%/v}"
 
 else # horizontal
 set -- "${@/%/cltumeqirxsfd}"
@@ -149,7 +147,7 @@ fi
 TIME_log="/tmp/time-${ALIGN:0:1}"
 #
   # add some space to INDENT2 for left justify
-    [[ "${ALIGN}" =~ ^l ]] && INDENT2=$((INDENT2+HALFSPACE1*5))
+    [[ "${ALIGN}" =~ ^l ]] && INDENT2="$((INDENT2+HALFSPACE1*5))"
   # cascading conky
     GOTO="\${goto "
     VOFFSET="\${voffset "
@@ -206,7 +204,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
     return 0
  }
   export -f gradient_
-    STEPS=$(wc -l < <(gradient_))
+    STEPS="$(wc -l < <(gradient_))"
 
   function color_() { # Return HEX color code from gradient function
       local current=$1
@@ -216,7 +214,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                                return 1; }
       local color
 
-      color=$(((current*STEPS+maximum/2)/maximum+1))
+      color="$(((current*STEPS+maximum/2)/maximum+1))"
       [[ "${color#-}" -ge 1 && "${color#-}" -lt 38 ]] \
           || color=37
       [ "${color#-}" -eq 0 ] \
@@ -258,7 +256,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
 
   function justify_() { # ALIGN string on line_length
                         # print newline if !horizontal
-     local align="$1"
+      local align="$1"
       local string="$2"
       local line_length="$3"
       local length_text padding newline
@@ -267,12 +265,12 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
 
           r*|c*)
                  # remove any leading & trailing whitespaces
-                   string=$(sed -e 's/}[ \t]*/}/' -e 's/^[[:space:]]*//' \
-                                -e 's/[[:space:]]*$//' <<< "${string}")
+                   string="$(sed -e 's/}[ \t]*/}/' -e 's/^[[:space:]]*//' \
+                                -e 's/[[:space:]]*$//' <<< "${string}")"
 
                  # length of string stripped of conky formating
-                   length_text=$(($(sed -e "s/[\${][^}]*[}]//g" <<< \
-                                        "${string}" | wc -c)-1))
+                   length_text="$(("$(sed -e "s/[\${][^}]*[}]//g" <<< \
+                                        "${string}" | wc -c)"-1))"
 
                  # check length of line v length of text
                    [[ "${length_text}" -gt "${line_length}" ]] \
@@ -280,9 +278,9 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                         return 2; }
 
                  # spaces to pad string
-                   padding=$((line_length-length_text))
+                   padding="$((line_length-length_text))"
                    [[ "${align}" =~ ^c ]] \
-                                 && padding=$(((padding+2/2)/2+1))
+                                 && padding="$(((padding+2/2)/2+1))"
 
              ;&
           l*)    # Just add newline to printf
@@ -290,8 +288,8 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
             ;&
           *)     # printf ${padding}${string}${newline}
                  # remove any leading & trailing whitespaces for horizontal
-                   string=$(sed -e 's/^[[:space:]]*//' \
-                                -e 's/[[:space:]]*$//' <<< "${string}")
+                   string="$(sed -e 's/^[[:space:]]*//' \
+                                -e 's/[[:space:]]*$//' <<< "${string}")"
                    printf "%$((padding+${#string}))s%s" "${string}" "${newline}"
             ;;
 
@@ -332,16 +330,16 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
       local then=$1
       local file=$2
       local now
-      now=$(/usr/bin/date +%s \
-                                | tee "${file:-/dev/null}")
-      echo $((now-then)) 
+      now="$(/usr/bin/date +%s \
+                                | tee "${file:-/dev/null}")"
+      echo "$((now-then))"
   return 0
  }
  export -f interval_
 
   function check_IP_data_() { # Check if ip data file is/recent or create/update
         { is_READABLE_ "${1}" \
-          && [ "$(($(/usr/bin/date +%s)-$(/opt/bin/stat -c %Y "${1}")))" -le "${CURL_dt}" ]; } \
+          && [ "$(("$(/usr/bin/date +%s)"-"$(/opt/bin/stat -c %Y "${1}")"))" -le "${CURL_dt}" ]; } \
                && return 0
 
       curl -sf -m 2 ipinfo.io/"$(/opt/bin/dig +short myip.opendns.com @resolver1.opendns.com)" > "${1}" \
@@ -398,9 +396,9 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
   if [[ "${@}" =~ (e|q|i|r|x|s) ]]
   then # outputing network information
      # Network interfaces
-       ACTIVE_iface=$(bash_REMATCH_ "/sbin/ip route show" \
-                                    '^d.*[[:space:]]([^[:space:]]+)[[:space:]]$')
-       ACTIVE_wifi=$(bash_REMATCH_ "/sbin/ip addr" '(wlan[[:digit:]]):[[:blank:]]<BR')
+       ACTIVE_iface="$(bash_REMATCH_ "/sbin/ip route show" \
+                                    '^d.*[[:space:]]([^[:space:]]+)[[:space:]]$')"
+       ACTIVE_wifi="$(bash_REMATCH_ "/sbin/ip addr" '(wlan[[:digit:]]):[[:blank:]]<BR')"
      # file for public ip data
        IP_data="/tmp/network_DATA"
      # delay for curling ipinfo.co (1,000/day is their max)
@@ -408,7 +406,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
   fi
 
   # number of cpu cores
-    NCORES=$(bash_REMATCH_ /proc/cpuinfo '^processor' | wc -l)
+    NCORES="$(bash_REMATCH_ /proc/cpuinfo '^processor' | wc -l)"
 
   while getopts "ocltmueqxirspfdhwv" opt
   do
@@ -462,12 +460,12 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
         echo -n  "${GOTO} ${INDENT1}}"
         echo -n  "\${voffset $((LINE_height1*1+LINE_height2*1+(SPACING*1)))}"
         echo -n  "${FONT2}"
-                 h="$((LINE_height1*2))"
-                 w="$(((LINE_length1*CHARACTER_width1-HALFSPACE1*5)))"
-                 skip=$((LINE_height1*1+LINE_height2*3))
+                  h="$((LINE_height1*2))"
+                  w="$(((LINE_length1*CHARACTER_width1-HALFSPACE1*5)))"
+                  skip="$((LINE_height1*1+LINE_height2*3))"
               else # horizontal conky
-                 h="$((9*1))"
-                 w="$(((CHARACTER_width1*8)))"
+                  h="$((9*1))"
+                  w="$(((CHARACTER_width1*8)))"
               fi
         echo -n  "\${execgraph \"echo ${core_per100[0]%.*}\" ${h},${w} 00FF00 FF0000 -t }"
 
@@ -497,7 +495,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
 
                 2) # print per core in big.Little order
         justify_ "${ALIGN}" \
-                 "$(for core in 3 4 5 6 1 2
+                 "$(renice -15 $BASHPID; for core in 3 4 5 6 1 2
                     do echo -n "\${color $(color_ "${core_per100[$core]%.*}" "$((100*COLOR))")}"
                        echo -n "$(printf '%6.1f' "${core_per100[$core]}")"
                        echo -n "${COLOR_units}\${offset 2}%\${color}"
@@ -507,7 +505,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
 
                 *) # OR cores in numeric order
         justify_ "${ALIGN}" \
-                 "$(for ((core=1;core<="${NCORES}";core++))
+                 "$(renice -15 $BASHPID; for ((core=1;core<="${NCORES}";core++))
                     do echo -n "\${color $(color_ "${core_per100[$core]%.*}" "$((100*COLOR))")}"
                        echo -n "${core_per100[$core]}"
                        echo -n "${COLOR_units}\${offset 2}%\${color}"
@@ -522,7 +520,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                   [[ "${FORMAT}" =~ ^longes ]] &&
         echo -n "\${voffset -$((LINE_height1*2))}"
                   ((skip)) \
-                     || skip=$((LINE_height1*1))
+                     || skip="$((LINE_height1*1))"
               fi
 
                  # return to color scheme
@@ -549,7 +547,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                          done)
               return 0; }
 
-              # Current frequency minimum and maximum
+              # frequency current, minimum, & maximum
                 mapfile -t fqz < \
                        <(cat /sys/devices/system/cpu/cpufreq/policy*/scaling_*_freq)
 
@@ -600,11 +598,11 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
 
                if is_EMPTY_  "${move_to}"
                then case "${ALIGN}" in
-                     c*) move_to="$((HALFSPACE1*9))";;
-                     r*) move_to=0;;
-                     l*) move_to="$((INDENT2*1-CHARACTER_width1))";;
-                     *)  move_to="$((CHARACTER_width1*2))";;
-               esac
+                      c*) move_to="$((HALFSPACE1*9))";;
+                      r*) move_to=0;;
+                      l*) move_to="$((INDENT2*1-CHARACTER_width1))";;
+                      *)  move_to="$((CHARACTER_width1*2))";;
+                    esac
                fi
 
               c_line+="\${color $(color_ "${core_per100[0]%.*}" "$((100*COLOR))")}"
@@ -731,15 +729,18 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
 
             if [[ "$((((temps[0]+(1000/2))/1000)))" -ge "${hot}" ]]
             then # Hi temp, what process is using most cpu
-            is_CASCADING_ "${ALIGN}" \
-        && echo -n  "\${voffset ${SPACING}}"
+                is_CASCADING_ "${ALIGN}" \
+                && echo -n  "\${voffset ${SPACING}}"
         echo -n  "\${color #ff3200}${FONT1}"
         awk -v indent="${GOTO} $((INDENT2+0))}" '
             {if ($1) printf "%s%-10s%7d%6.1f%%%6.1f%%",indent,$11,$1,$7,$8;
-             else printf $2}' < <(/opt/bin/top -bn 2 -d 0.01 -c -o +"${SORT}" | 
-             sed -e '/top/d' | /usr/bin/tail -n +11 | /usr/bin/head -1)
-            is_CASCADING_ "${ALIGN}" \
-        && echo
+             else printf $2}' < \
+            <(/opt/bin/top -bn 2 -d 0.01 -c -o +"${SORT}" \
+                           | sed -e '/top/d' \
+                           | /usr/bin/tail -n +11 \
+                           | /usr/bin/head -1)
+                is_CASCADING_ "${ALIGN}" \
+                && echo
             fi
       ;;
 
@@ -773,8 +774,8 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                    <(bash_REMATCH_ /proc/meminfo \
                                    '^[M|B][e|u].*:[[:blank:]]*([[:digit:]]+)[[:blank:]]')
 
-              mem_used=$((memory[0]-memory[2]-memory[3]))
-              mem_perc=$(printf "%4.1f\n" "$((10**11 * mem_used/memory[0]))e-9")
+              mem_used="$((memory[0]-memory[2]-memory[3]))"
+              mem_perc="$(printf "%4.1f\n" "$((10**11 * mem_used/memory[0]))e-9")"
 
             if is_EMPTY_ "${MEM_text}"
             then #               memory bar  
@@ -809,7 +810,9 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
         echo -n "${GOTO} $((INDENT2+10))}${FONT1}\${color red}"
         awk '{printf "%-9s %d %2.1f%% %5.1f Mb %5.1f Mb\n",
                      $1,$2,$3,($4/1024),($5/1024^2)}' < \
-           <(/opt/bin/ps -eo comm,ppid,pmem,rss,vsize | /opt/bin/sort -k 3 -n -r | /usr/bin/head -1)
+           <(/opt/bin/ps -eo comm,ppid,pmem,rss,vsize \
+                         | /opt/bin/sort -k 3 -n -r \
+                         | /usr/bin/head -1)
             fi
       ;;
 
@@ -818,10 +821,10 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
         then
         heading_ "ESSID:" "${ALIGN}" "${GOTO}" "${INDENT1}" "${COLOR1}" "${FONT1}" "${SPACING}"
 
-              match="${ACTIVE_wifi}:[[:blank:]][[:digit:]]+[[:blank:]]*([[:digit:]]+)\."
+            match="${ACTIVE_wifi}:[[:blank:]][[:digit:]]+[[:blank:]]*([[:digit:]]+)\."
 
-              line="$(bash_REMATCH_ 'connmanctl services' '^\*AR[[:blank:]]([^[:blank:]]+).*w')"
-              line+="${COLOR2} $(bash_REMATCH_ /proc/net/wireless "${match}")%"
+            line="$(bash_REMATCH_ 'connmanctl services' '^\*AR[[:blank:]]([^[:blank:]]+).*w')"
+            line+="${COLOR2} $(bash_REMATCH_ /proc/net/wireless "${match}")%"
 
           echo -n  "${GOTO} ${INDENT2}}${COLOR3}"
           justify_ "${ALIGN}" \
@@ -926,8 +929,8 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                 b=${1}; d=''; s=0; S=(' B' {K,M,G,T,E,P,Y,Z}B)
 
                 while ((b > 1024)); do
-                   d="$(printf "%02d" $((((b%1024*100)+(1024/2))/1024)))"
-                   b=$((b / 1024))
+                   d="$(printf "%02d" "$((((b%1024*100)+(1024/2))/1024))")"
+                   b="$((b / 1024))"
                    ((s++))
                 done
                 [[ "${b}" -gt 0 ]] \
@@ -942,11 +945,11 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
 
             # previous read time or invalidate net_stats
               { is_READABLE_ "${net_time}" \
-                && last_TIME=$(<"${net_time}"); } \
+                && last_TIME="$(<"${net_time}")"; } \
                 || echo -n "" > "${net_stats}"
 
             # time interval
-              dt=$(interval_ "${last_TIME}" "${net_time}")
+              dt="$(interval_ "${last_TIME}" "${net_time}")"
               [[ "${dt}" -eq 0 ]] \
                          && dt=1
 
@@ -956,18 +959,18 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                      <(cat /sys/class/net/"${ACTIVE_iface}"/statistics/{rx,tx}_bytes \
                            | tee "${net_stats}"))
 
-            rxtx=(  $((((rawbytes[2]-rawbytes[0])+(dt/2))/dt)) )
-            rxtx+=( $((((rawbytes[3]-rawbytes[1])+(dt/2))/dt)) )
+            rxtx=(  "$((((rawbytes[2]-rawbytes[0])+(dt/2))/dt))" )
+            rxtx+=( "$((((rawbytes[3]-rawbytes[1])+(dt/2))/dt))" )
 
             # to set max upper speed
               speed='/tmp/net-speed'
             # adjust scale for up speed
-              hi_up=$(< "${speed}_up") \
+              hi_up="$(< "${speed}_up")" \
                     || hi_up=1000
               [[ "${rxtx[1]}" -gt "${hi_up}" ]] \
                                && echo "${rxtx[1]}">"${speed}_up"
             # adjust scale for down speed
-              hi_dn=$(< "${speed}_down") \
+              hi_dn="$(< "${speed}_down")" \
                     || hi_dn=1000
               [[ "${rxtx[0]}" -gt "${hi_dn}" ]] \
                                && echo "${rxtx[0]}">"${speed}_down"
@@ -1013,7 +1016,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
               mv "${stats}" "${stats:0: -1}" 2>/dev/null \
                  || touch "${stats:0: -1}"
 
-              dt=$(interval_ "$(<"${stats}_time")" "${stats}_time")
+              dt="$(interval_ "$(<"${stats}_time")" "${stats}_time")"
 
               (while IFS= read -r a <&3 && IFS= read -r b <&4
                do echo "${a} ${b}"
@@ -1057,20 +1060,20 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
              echo -n  "\${voffset -1}\${hr}\${voffset $((LINE_height1+4))}"; }
 
             file="/tmp/filesystem-${ALIGN:0:1}"
-            fs_data_age=$(/opt/bin/stat -c %Y "${file}" 2>/dev/null) \
-                        || fs_data_age=$((now+FS_dt+1))
+            fs_data_age="$(/opt/bin/stat -c %Y "${file}" 2>/dev/null)" \
+                        || fs_data_age="$((now+FS_dt+1))"
 
             # to shorten the list especially for horizontal format
               skip_target=( "flash" "" )
 #              skip_target=( "flash" "NEW_STUFF" "MOVIE+TV" )
 
             if [[ "$(interval_ "${fs_data_age}" )" -gt "${FS_dt}" \
-               || $(is_NOT_file_ "${file}") ]]
+               || "$(is_NOT_file_ "${file}")" ]]
             then # read current data and tee to file
 
                 # (width of line in conky 'x') - (location & length of FREE) + space
-                  width=$((LINE_length1*CHARACTER_width1-INDENT1-(HALFSPACE1*47)))
-                  [[ "${ALIGN}" =~ ^l ]] && width=$((width-HALFSPACE1*5))
+                  width="$((LINE_length1*CHARACTER_width1-INDENT1-(HALFSPACE1*47)))"
+                  [[ "${ALIGN}" =~ ^l ]] && width="$((width-HALFSPACE1*5))"
                 { /opt/bin/df   -lh -x tmpfs -x devtmpfs -x squashfs -x iso9660 \
                                 --output=target,avail,used,pcent \
                               | tail -n +2 \
@@ -1098,7 +1101,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
         echo -n  "$(printf %18s "${AVAIL}")"
         echo -n  "${GOTO} $((INDENT2+19*CHARACTER_width1))}"
         echo -n  "\${color $(color_ "$((percent))" "$((100*COLOR))")}"
-        echo -n  "\${execbar ${BAR_height},${width} echo ${percent%.*}}"
+        echo -n  "\${execbar ${BAR_height},${width} echo '${percent%.*}'}"
         echo -n  "${GOTO} $((INDENT2+18*CHARACTER_width1))}"
         echo -n "\${offset $((width*${percent%.*}/110-HALFSPACE1*3))}"
         echo -n  "\${color $(color_ $((100-${percent%.*})) '100')}$(printf "%4s" "${USED}")"
@@ -1131,7 +1134,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
         echo     "\${voffset -1}\${hr}\${voffset $((LINE_height1/3))}"
 
             # allow some expansion for wider viewport
-              fudge=$(((LINE_length1-33)/4))
+              fudge="$(((LINE_length1-33)/4))"
               spacing=( "$((HALFSPACE2*28))" "$((HALFSPACE2*fudge))" "$((HALFSPACE2*fudge))" )
 
         echo -n  "${GOTO} $((INDENT1+CHARACTER_width2))}\${voffset -2}"
