@@ -82,18 +82,18 @@ tss=$(/usr/bin/date +%s%N)
   # offset between options
     SPACING=4
   # height of filesystem bar (odd numbers center better)
-    BAR_height=14
+    BAR_height=3
+  # set to 0 for monochrome
+    COLOR=
   # set to show memory stats as text
     MEM_text=1
   # sort "NPROCS" processes on "SORT" (%CPU or %MEM)
     NPROCS=4
     SORT="%CPU"
-  # Colorize data 1=colorize 0=monochrome
-    COLOR=1
   # colors for labels, sublabels,
   #   data, & units
     COLOR1="\${color #06939B}"; COLOR2="\${color #34BDC4}"
-      COLOR3="\${color #9FEEF3}"; COLOR_units="\${color grey70}"
+      COLOR3="\${color #9FEEF3}"; COLOR_units="\${color #b3b3b3}"
   # a monospace font found on computer running conky
   # run fc-list :spacing=100 ( n.b some fonts are limited )
     font_family="Hack"
@@ -496,7 +496,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                 2) # print per core in big.Little order
         justify_ "${ALIGN}" \
                  "$(renice -15 $BASHPID; for core in 3 4 5 6 1 2
-                    do echo -n "\${color $(color_ "${core_per100[$core]%.*}" "$((100*COLOR))")}"
+                    do echo -n "\${color $(color_ "${core_per100[$core]%.*}" "${COLOR:=100}")}"
                        echo -n "$(printf '%6.1f' "${core_per100[$core]}")"
                        echo -n "${COLOR_units}\${offset 2}%\${color}"
                     done)" \
@@ -506,7 +506,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                 *) # OR cores in numeric order
         justify_ "${ALIGN}" \
                  "$(renice -15 $BASHPID; for ((core=1;core<="${NCORES}";core++))
-                    do echo -n "\${color $(color_ "${core_per100[$core]%.*}" "$((100*COLOR))")}"
+                    do echo -n "\${color $(color_ "${core_per100[$core]%.*}" "${COLOR:=100}")}"
                        echo -n "${core_per100[$core]}"
                        echo -n "${COLOR_units}\${offset 2}%\${color}"
                     done)" \
@@ -524,8 +524,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
               fi
 
                  # return to color scheme
-                   is_EMPTY_ "${oCOLOR}" \
-                            || COLOR="${oCOLOR}"
+                   COLOR="${oCOLOR}"
              ;&
           l*)     # Print frequencies, % for big.LITTLE as well
 
@@ -559,7 +558,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
 
                    # concatenate line so its closer to 80 columns
                      l_string="\${offset 1}${FONT2}"
-                     l_string+="\${color $(color_ "${big_perc%.*}" "$((100*COLOR))")}"
+                     l_string+="\${color $(color_ "${big_perc%.*}" "${COLOR:=100}")}"
                      l_string+="${big_perc}"
                      l_string+="\${offset ${HALFSPACE2}}${COLOR_units}%"
                      l_string+="\${offset ${HALFSPACE2}}${ASTERISK}"
@@ -567,7 +566,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                      l_string+="\${color $(color_ "$((fqz[3]-fqz[5]))" "$(((fqz[4]-fqz[5])*COLOR))")}"
                      l_string+="$(human_FREQUENCY_ "${fqz[3]}")"
                      l_string+="\${offset ${HALFSPACE2}}${VOFFSET} -1}"
-                     l_string+="\${color $(color_ "${LITTLE_perc%.*}" "$((100*COLOR))")}"
+                     l_string+="\${color $(color_ "${LITTLE_perc%.*}" "${COLOR:=100}")}"
                      l_string+="${FONT2}${LITTLE_perc}"
                      l_string+="\${offset 2}${COLOR_units}%\${offset 2}"
                   ;;
@@ -586,7 +585,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
 
                  case "${ALIGN}" in
                    c*) move_to="$((HALFSPACE1*7))";;
-                   r*) is_EMPTY_ "${move_to}" && move_to="$((HALFSPACE1*7))";;
+                   r*) : "${move_to:=$((HALFSPACE1*7))}";;
                    l*) move_to="$((INDENT1+CHARACTER_width1*5))";;
                    *)  move_to=1
                  esac
@@ -605,7 +604,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                     esac
                fi
 
-              c_line+="\${color $(color_ "${core_per100[0]%.*}" "$((100*COLOR))")}"
+              c_line+="\${color $(color_ "${core_per100[0]%.*}" "${COLOR:=100}")}"
               c_line+="${core_per100[0]}"
               c_line+="\${offset 1}${COLOR_units}%"
 
@@ -645,17 +644,22 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
 
             mapfile -d' '  loadavg < /proc/loadavg
 
-            for avg in {0..2}
-            do case "${loadavg[${avg}]}" in
-                 0*)    load_color+=(00d4ff);;
-                 1\.*)  load_color+=(00ff5c);;
-                 2*)    load_color+=(8aff00);;
-                 3*)    load_color+=(ffe600);;
-                 4*)    load_color+=(ffaa00);;
-                 5*)    load_color+=(ff6e00);;
-                 *)     load_color+=(ff3200);;
-               esac
-            done
+            if is_EMPTY_ "${COLOR}"
+            then for avg in {0..2}
+                do case "${loadavg[${avg}]}" in
+                     0*)    load_color+=(00d4ff);;
+                     1\.*)  load_color+=(00ff5c);;
+                     2*)    load_color+=(8aff00);;
+                     3*)    load_color+=(ffe600);;
+                     4*)    load_color+=(ffaa00);;
+                     5*)    load_color+=(ff6e00);;
+                     *)     load_color+=(ff3200);;
+                   esac
+                done
+            else for avg in {0..2}
+                 do  load_color+=("${COLOR3:8:-1}")
+                 done
+            fi
 
             a_line+="\${color ${load_color[0]}}"
             a_line+="$(sed -e 's/[ \t]*//'  <<< "${loadavg[0]}")"
@@ -701,17 +705,22 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                 *)     right=0;;
               esac
 
-            for temp in $(seq "${#temps[@]}")
-            do case "${temps[$((temp-1))]}" in
-                 2*)  temp_color+=(00d4ff);;
-                 3*)  temp_color+=(00ff5c);;
-                 4*)  temp_color+=(8aff00);;
-                 5*)  temp_color+=(ffe600);;
-                 6*)  temp_color+=(ffaa00);;
-                 7*)  temp_color+=(ff6e00);;
-                 *)   temp_color+=(ff3200);;
-               esac
-            done
+            if is_EMPTY_ "${COLOR}"
+            then for temp in $(seq "${#temps[@]}")
+                 do case "${temps[$((temp-1))]}" in
+                      2*)  temp_color+=(00d4ff);;
+                      3*)  temp_color+=(00ff5c);;
+                      4*)  temp_color+=(8aff00);;
+                      5*)  temp_color+=(ffe600);;
+                      6*)  temp_color+=(ffaa00);;
+                      7*)  temp_color+=(ff6e00);;
+                      *)   temp_color+=(ff3200);;
+                    esac
+                done
+            else for temp in $(seq "${#temps[@]}")
+                 do  temp_color+=("${COLOR3:8:-1}")
+                 done
+            fi
 
             zone=0
             for temp in "${temps[@]}"
@@ -786,7 +795,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                 is_HORIZ_ "${ALIGN}" \
                               && width="60"
 
-        echo -n  "\${color $(color_ "${mem_perc%.*}" "$((100*COLOR))")}"
+        echo -n  "\${color $(color_ "${mem_perc%.*}" "${COLOR:=100}")}"
         echo -n  "\${execbar $((LINE_height1/3)),${width} echo ${mem_perc%.*}}"
                  is_CASCADING_ "${ALIGN}" \
                  && echo
@@ -794,7 +803,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
             else #                  text
                 is_CASCADING_ "${ALIGN}" \
                    && echo -n  "${label}"
-                m_line+="\${color $(color_ "${mem_perc%.*}" "$((100*COLOR))")}"
+                m_line+="\${color $(color_ "${mem_perc%.*}" "${COLOR:=100}")}"
                 m_line+="${mem_perc}%"
                 m_line+=" $((mem_used/1024))${COLOR3}/$((memory[0]/1024))"
                 m_line+="${FONT_units}${COLOR_units}\${offset 3}MB"
@@ -823,8 +832,9 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
 
             match="${ACTIVE_wifi}:[[:blank:]][[:digit:]]+[[:blank:]]*([[:digit:]]+)\."
 
-            line="$(bash_REMATCH_ 'connmanctl services' '^\*AR[[:blank:]]([^[:blank:]]+).*w')"
-            line+="${COLOR2} $(bash_REMATCH_ /proc/net/wireless "${match}")%"
+            line="$(bash_REMATCH_ 'connmanctl services' '^\*AR[[:blank:]]([^[:blank:]]+).*w') "
+            # TODO need to fiqure out bitrate speed w/o iwconfig
+              line+="${COLOR2}$(bash_REMATCH_ /proc/net/wireless "${match}")%"
 
           echo -n  "${GOTO} ${INDENT2}}${COLOR3}"
           justify_ "${ALIGN}" \
@@ -835,7 +845,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
 
     q)                     # Wireless Quality & bitrate #
         if is_NOT_empty_ "${ACTIVE_wifi}"
-        then                # TODO need to fiqure out bitrate speed w/o iwconfig
+        then # TODO need to fiqure out bitrate speed w/o iwconfig
         #heading_ "LINK:" "${ALIGN}" "${GOTO}" "${INDENT1}" "${COLOR1}" "${FONT1}" "${SPACING}"
 
             match="${ACTIVE_wifi}:[[:blank:]][[:digit:]]+[[:blank:]]*([[:digit:]]+)\."
@@ -935,7 +945,8 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                 done
                 [[ "${b}" -gt 0 ]] \
                            || { b=1; d=0; s=0; }
-                is_EMPTY_ "${d}" && d='0'
+                : "${d:=0}"
+                #is_EMPTY_ "${d}" && d='0'
                 printf "%4d%s%.3s%s" "$b" "." "${d}" "${u}${S[${s}]}${p_u}"
             return 0; }
 
@@ -980,11 +991,11 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
               is_HORIZ_ "${ALIGN}" \
                         && sublabel=( '↑' '↓' )
 
-            s_line+="${COLOR2}${FONT1}${sublabel[0]}"
-            s_line+="\${color $(color_ "$((rxtx[1]))" "$((hi_up*COLOR))")}"
+            s_line+="${COLOR1}${FONT1}${sublabel[0]}"
+            s_line+="\${color $(color_ "$((rxtx[1]))" "${COLOR:=${hi_up}}")}"
             s_line+="$(human_NETSPEED_ "${rxtx[1]}")"
-            s_line+="${COLOR2}${FONT1} ${sublabel[1]}"
-            s_line+="\${color $(color_ " $((rxtx[0]))" "$((hi_dn*COLOR))")}"
+            s_line+="${COLOR1}${FONT1} ${sublabel[1]}"
+            s_line+="\${color $(color_ " $((rxtx[0]))" "${COLOR:=${hi_dn}}")}"
             s_line+="$(human_NETSPEED_ "${rxtx[0]}")"
             is_CASCADING_ "${ALIGN}" \
             && s_line+="\${voffset 1}"
@@ -1030,14 +1041,33 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                                   ((write_end-write_start)/dt)*512/1024^2;
                        else printf "\n";}'
             }
- 
+
             mapfile -t diskio < <(diskstats_ "${ALIGN}")
+
+            # to set max upper speed
+              speed='/tmp/disk'; touch "${speed}_read"; touch "${speed}_write"
+              hi_read="$(< "${speed}_read")" \
+                    || hi_read='1'
+              hi_write="$(< "${speed}_write")" \
+                    || hi_write='1'
+
+            convert_float() { awk '{printf "%.0f\n", $1*1000 }' <<< "$1"; }
+            # color disk io
+              colors=( "$(color_ "$(convert_float "${diskio[0]}")" "${hi_read:=1}")" )
+              colors+=( "$(color_ "$(convert_float "${diskio[1]}")" "${hi_write:=1}")" )
+
+            # adjust scale for read speed
+              [[ "$(convert_float "${diskio[0]}")" -gt "${hi_read}" ]] \
+                               && convert_float "${diskio[0]}" > "${speed}_read"
+            # adjust scale for write speed
+              [[ "$(convert_float "${diskio[1]}")" -gt "${hi_write}" ]] \
+                               && convert_float "${diskio[1]}" > "${speed}_write"
 
             # variables for conky
               offset=0
               [[ "${ALIGN}" =~ ^c ]] \
                             && offset="${CHARACTER_width2}"
-              begin="\${offset ${offset}}${COLOR2}${FONT1}"
+              begin="\${offset ${offset}}${COLOR1}${FONT1}"
               write="${begin}W${COLOR3}"
               read="${begin}R${COLOR3}"
               mb="\${offset $((HALFSPACE2*1))}${COLOR_units}${FONT2}"
@@ -1049,7 +1079,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
         [[ "${ALIGN}" =~ ^r ]] \
                       && echo -n "\${offset $((HALFSPACE2*6))}"
         justify_ "${ALIGN}" \
-                 "${read}${diskio[0]}${mb}${write}${diskio[1]}${mb}" \
+                 "${read}\${color ${colors[0]}}${diskio[0]}${mb}${write}\${color ${colors[1]}}${diskio[1]}${mb}" \
                  "$((LINE_length1-INDENT2/CHARACTER_width1))"
       ;;
 
@@ -1092,7 +1122,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                         then # print linear
         echo -n  "\${offset 6}${COLOR1}"
         echo -n  "${target:0:8}"
-        echo -n  "\${color $(color_ "$((percent))" "$((100*COLOR))")}"
+        echo -n  "\${color $(color_ "$((percent))" "${COLOR:=100}")}"
         echo -n  "\${offset ${HALFSPACE1}}$(printf "%5s" "${AVAIL}") "
                         else # print table
         echo -n  "${GOTO} $((INDENT1+(HALFSPACE1*3)))}${COLOR2}"
@@ -1100,7 +1130,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
         echo -n  "${GOTO} ${INDENT2}}${COLOR3}"
         echo -n  "$(printf %18s "${AVAIL}")"
         echo -n  "${GOTO} $((INDENT2+19*CHARACTER_width1))}"
-        echo -n  "\${color $(color_ "$((percent))" "$((100*COLOR))")}"
+        echo -n  "\${color $(color_ "$((percent))" "${COLOR:=100}")}"
         echo -n  "\${execbar ${BAR_height},${width} echo '${percent%.*}'}"
         echo -n  "${GOTO} $((INDENT2+18*CHARACTER_width1))}"
         echo -n "\${offset $((width*${percent%.*}/110-HALFSPACE1*3))}"
