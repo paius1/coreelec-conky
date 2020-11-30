@@ -80,15 +80,15 @@ tss=$(/usr/bin/date +%s%N)
   # Default alignment
     ALIGN="left"
   # offset between options
-    SPACING=4
+    SPACING=3
   # height of filesystem bar (odd numbers center better)
-    BAR_height=3
+    BAR_height=9
   # set to 0 for monochromatic data
     COLOR=
   # set to show memory stats as text
     MEM_text=1
   # sort "NPROCS" processes on "SORT" (%CPU or %MEM)
-    NPROCS=4
+    NPROCS=3
     SORT="%CPU"
   # colors for labels, sublabels, data, & units
     COLOR1="\${color #06939B}"
@@ -131,20 +131,25 @@ tss=$(/usr/bin/date +%s%N)
 #
 if [[ ${#1} -eq 1 ]]
 then # add options after %/
-
+#
 if [[ ! "${ALIGN}" =~ ^h ]]
 then # cascading
 
 set -- "${@/%/ocltmueqirxsdf}"
+#
+#set -- "${@/%/p}"
 # for benchmarking
 #set -- "${@/%/v}"
 
 else # horizontal
 
-set -- "${@/%/cltumeqirxsdf}"
-
+set -- "${@/%/cltumeqrsfd}"
+# for benchmarking
+#set -- "${@/%/v}"
+FORMAT=long
+#
 fi
-
+#
 fi
 #
 # for benchmarking script
@@ -157,13 +162,13 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
     GOTO="\${goto "
     VOFFSET="\${voffset "
   # left hr since conky can't define hr width
-  # character is unicode, so cut at multiples of 3 e.g. ${HR:0:9}
+    # character is unicode, so cut at multiples of 3 e.g. ${HR:0:9}
     while read -r num; do HR+="―"; done < <(seq "$((LINE_length2))")
-     export LC_ALL=C
   # delay for refreshing disk usage to save time
     FS_dt=16
   # the @ character prints below the line
     ASTERISK="\${voffset -1}@\${voffset 1}"
+  export LC_ALL=C
 
   function gradient_() { # Pretty colors for data
     cat <<- ' EOg'
@@ -213,8 +218,8 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
   function color_() { # Return HEX value from gradient_ function
       { is_EMPTY_ "$2" \
         || [ "$2" -eq 0 ]; } \
-                 && { bash_REMATCH_ "${COLOR3}" ' [#]?([[:alnum:]]+)[[:blank:]]?}$';
-                      return 1; }
+                   && { bash_REMATCH_ "${COLOR3}" ' [#]?([[:alnum:]]+)[[:blank:]]?}$';
+                        return 1; }
       local current="$1"
       local maximum="$2"
       local color
@@ -222,7 +227,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
       color="$((( current*STEPS + maximum / 2 ) / maximum ))"
       [ "${color#-}" -ge 1 ] \
                       || color=1
-      /usr/bin/tail -n "${color#-}" < <(gradient_) \
+      /usr/bin/tail  -n "${color#-}" < <(gradient_) \
                     | /usr/bin/head -1
   return 0
  } 
@@ -251,7 +256,8 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
 
       echo -n  "${conky_object} ${position}}${color}${font}"
           is_CASCADING_ "${align}" \
-      && echo -n "\${voffset ${spacing}}${label}"
+          && \
+      echo -n "\${voffset ${spacing}}${label}"
   return 0      
  }
  export -f heading_
@@ -270,13 +276,13 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                                 -e 's/[[:space:]]*$//' <<< "${string}")"
 
                  # length of string stripped of conky formating
-                   length_text="$(("$(sed -e "s/[\${][^}]*[}]//g" <<< \
-                                        "${string}" | wc -c)"-1))"
+                   length_text="$(("$(sed  -e "s/[\${][^}]*[}]//g" <<< "${string}" \
+                                          | wc -c)"-1))"
 
                  # check length of line v length of text
                    [[ "${length_text}" -gt "${line_length}" ]] \
                                         && { echo "length: ${line_length} < string: ${length_text}";
-                        return 2; }
+                                             return 2; }
 
                  # spaces to pad string
                    padding="$((line_length-length_text))"
@@ -304,7 +310,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
       local output           # command output, or string
       local source="$1"
       local pattern="$2"
-      is_NOT_empty_ "$3" \
+      is_SET_ "$3" \
       && output="/tmp/${1##*/}-${ALIGN}"
 
       if command -v "${source%% *}" > /dev/null
@@ -355,12 +361,13 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
  export -f no_IPINFO_
 
   function check_IP_data_() { # Check if ip data file is/recent or create/update
-      max_age="$2"
-      { is_READABLE_ "${1}" \
-        && [ "${max_age}" -gt "$(("$(/usr/bin/date +%s)"-"$(/opt/bin/stat -c %Y "${1}")"))" ]; } \
-        && return 0
       local ip_file="$1"
-      
+      local max_age="$2"
+
+      is_READABLE_ "${1}" \
+      && [[ "${max_age}" -gt "$(("$(/usr/bin/date +%s)"-"$(/opt/bin/stat -c %Y "${ip_file}")"))" ]] \
+      && return 0
+
       curl -sf -m 2 ipinfo.io/"$(/opt/bin/dig +short myip.opendns.com @resolver1.opendns.com)" > "${ip_file}" \
       || no_IPINFO_ > "${ip_file}"
   return 0
@@ -369,51 +376,51 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
 
   function is_EMPTY_() {
       local variable="$1"
-      [[ -z "${variable}" ]]
+      [ -z "${variable}" ]
  }
  export -f is_EMPTY_
 
-  function is_NOT_empty_() {
+  function is_SET_() {
       local variable="$1"
-      [[ -n "${variable}" ]]
+      [ -n "${variable}" ]
  }
- export -f is_NOT_empty_
+ export -f is_SET_
 
   function is_NOT_file_() {
       local file="$1"
-      [[ ! -f "${file}" ]]
+      [ ! -f "${file}" ]
  }
  export -f is_NOT_file_
 
   function is_READABLE_() {
       local file="$1"
-      [[ -r "${file}" ]]
+      [ -r "${file}" ]
  }
  export -f is_READABLE_
 
   # horizontal conky
     if is_HORIZ_ "${ALIGN}"
     then # keep fonts same, change goto/voffset to offset, indent2 to spacing
-       GOTO="\${offset "
-       VOFFSET="\${offset "
-       FONT1="${FONT2}"
-       FONT_units="${FONT1}"
-       CHARACTER_width1="${CHARACTER_width2}"
-       HALFSPACE1="${HALFSPACE2}"
-       INDENT2="${SPACING}"
+        GOTO="\${offset "
+        VOFFSET="\${offset "
+        FONT1="${FONT2}"
+        FONT_units="${FONT1}"
+        CHARACTER_width1="${CHARACTER_width2}"
+        HALFSPACE1="${HALFSPACE2}"
+        INDENT2="${SPACING}"
     fi
 
   if [[ "${@}" =~ e|q|i|r|x|s ]]
   then # outputing network information
-     # network interfaces
-       ACTIVE_iface="$(bash_REMATCH_ "/sbin/ip route show" \
-                                     '^d.*[[:space:]]([^[:space:]]+)[[:space:]]$')"
-       ACTIVE_wifi="$(bash_REMATCH_ "/sbin/ip addr" \
-                                    '(wlan[[:digit:]]):[[:blank:]]<BR')"
-     # file for public ip data
-       IP_data="/tmp/network_DATA"
-     # delay for curling ipinfo.co (1,000/day is their max)
-       CURL_dt=180
+      # network interfaces
+        ACTIVE_iface="$(bash_REMATCH_ "/sbin/ip route show" \
+                                      '^d.*[[:space:]]([^[:space:]]+)[[:space:]]$')"
+        ACTIVE_wifi="$(bash_REMATCH_ "/sbin/ip addr" \
+                                     '(wlan[[:digit:]]):[[:blank:]]<BR')"
+      # file for public ip data
+        IP_data="/tmp/network_DATA"
+      # delay for curling ipinfo.co (1,000/day is their max)
+        CURL_dt=180
   fi
 
   # number of cpu cores
@@ -427,7 +434,6 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
         heading_ "CPU:" "${ALIGN}" "${GOTO}" "${INDENT1}" "${COLOR1}" "${FONT1}" "${SPACING}"
 
               function core_PER100() { # Get cpu stats
-                  renice -15 $BASHPID
                   local cpu_usage=("$@")
                   local ncores
                   ncores="$(((${#cpu_usage[@]}-2)/2))"
@@ -501,7 +507,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
         echo -n "\${voffset $((LINE_height1))}${FONT2}${GOTO} $((INDENT1+HALFSPACE2*5))}"
                    ;;
                  *)
-        echo -n "\${voffset $((LINE_height1))}${FONT2}${GOTO} $((INDENT1+HALFSPACE2*7))}"
+        echo -n "\${voffset $((LINE_height1))}${FONT2}${GOTO} $((INDENT1+HALFSPACE2*2))}"
                    ;;
                esac
 
@@ -509,7 +515,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
 
                  2) # print per core in big.Little order
         justify_ "${ALIGN}" \
-                 "$(renice -15 $BASHPID; for core in 3 4 5 6 1 2
+                 "$(for core in 3 4 5 6 1 2
                     do echo -n "\${color $(color_ "${core_per100[$core]%.*}")}"
                        echo -n "$(printf '%6.1f' "${core_per100[$core]}")"
                        echo -n "${COLOR_units}\${offset 2}%\${color}"
@@ -519,7 +525,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
 
                  *) # OR cores in numeric order
         justify_ "${ALIGN}" \
-                 "$(renice -15 $BASHPID; for ((core=1;core<="${NCORES}";core++))
+                 "$(for ((core=1;core<="${NCORES}";core++))
                     do echo -n "\${color $(color_ "${core_per100[$core]%.*}")}"
                        echo -n "${core_per100[$core]}"
                        echo -n "${COLOR_units}\${offset 2}%\${color}"
@@ -536,7 +542,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                    : "${skip:=$((LINE_height1*1))}"
               fi
              ;&
-          l*) # print frequencies, % for big.LITTLE as well
+          l*) # print frequencies, % for big.LITTLE as well (pass long to script)
 
               function human_FREQUENCY_() { # GHz, MHz units for cpu frequency
                   awk -v units_style="\${offset 1}${FONT_units}${COLOR_units}" '
@@ -595,22 +601,22 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                 l_string+="\${color $(color_ "$((fqz[0]-fqz[2]))" "$(((fqz[1]-fqz[2])*${COLOR:-1}))")}"
                 l_string+="$(human_FREQUENCY_ "${fqz[0]}")"
 
-                 case "${ALIGN}" in
-                   c*) move_to="$((HALFSPACE1*7))";;
-                   r*) : "${move_to:=$((HALFSPACE1*7))}";;
-                   l*) move_to="$((INDENT1+CHARACTER_width1*5))";;
-                   *)  move_to=1
-                 esac
+              case "${ALIGN}" in # make room for a long line
+                l*)    move_to="$((INDENT1+CHARACTER_width1*4))";;
+                r*|c*) : "${move_to:=$((HALFSPACE1*7))}";;
+                *)     move_to=1;;
+              esac
 
-                   : "${skip:=$((SPACING-1))}"
+              : "${skip:=$((SPACING-1))}"
             ;&
           *) # print overall percentage
 
-               case "${ALIGN}" in
-                      c*) : "${move_to:=$((HALFSPACE1*9))}" ;;
-                      r*) : "${move_to:=0}" ;;
-                      l*) : "${move_to:=$((INDENT2*1-CHARACTER_width1))}" ;;                       *)  : "${move_to:=$((CHARACTER_width1*2))}"  ;;
-               esac
+              case "${ALIGN}" in
+                c*) : "${move_to:=$((HALFSPACE1*9))}" ;;
+                r*) : "${move_to:=0}" ;;
+                l*) : "${move_to:=$((INDENT2*1-CHARACTER_width1))}" ;;
+                *)  : "${move_to:=$((CHARACTER_width1*2))}"  ;;
+              esac
 
               c_line+="\${color $(color_ "${core_per100[0]%.*}" "${COLOR:-100}")}"
               c_line+="${core_per100[0]}"
@@ -621,12 +627,12 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                  "${c_line}${l_string}" \
                  "${LINE_length1}"
 
-               case "${ALIGN}" in
-              h*)
+              case "${ALIGN}" in
+                h*)
         echo -n "\${offset 2}";;
-              *) : "${skip:=0}"
+                *) : "${skip:=0}"
         echo -n  "\${voffset ${skip}}";;
-               esac    
+              esac    
             ;;
         esac
 
@@ -642,8 +648,9 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                       (iowEnd-iowStart)*100/(end-start),
                       (sirqEND-sirqStart)*100/(end-start);}'  < \
            <(printf "%s %s\n" "${cpu_usage[0]}" "${cpu_usage[$((NCORES+1))]}")
-            is_CASCADING_ "${ALIGN}" \
-        && echo
+                is_CASCADING_ "${ALIGN}" \
+                && \
+        echo
             fi
       ;;
 
@@ -687,8 +694,9 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                  mapfile -t procs < \
                         <( bash_REMATCH_ /proc/stat '^procs_(.*)+' )
         echo -n  "\${color #ff3200}\${alignc} ${procs[0]} ${procs[1]}"
-                is_CASCADING_ "${ALIGN}" \
-        && echo
+                 is_CASCADING_ "${ALIGN}" \
+                 && \
+        echo
             fi
       ;;
 
@@ -748,7 +756,8 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
             if [[ "$((((temps[0]+(1000/2))/1000)))" -ge "${hot}" ]]
             then          # Hi temp, what process is using most cpu
                 is_CASCADING_ "${ALIGN}" \
-        && echo -n  "\${voffset ${SPACING}}"
+                && \
+        echo -n  "\${voffset ${SPACING}}"
         echo -n  "\${color #ff3200}${FONT1}"
         awk -v indent="${GOTO} $((INDENT2+0))}" '
             {if ($1) printf "%s%-10s%7d%6.1f%%%6.1f%%",indent,$11,$1,$7,$8;
@@ -757,8 +766,10 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                            | sed -e '/top/d' \
                            | /usr/bin/tail -n +11 \
                            | /usr/bin/head -1)
+
                 is_CASCADING_ "${ALIGN}" \
-        && echo
+                && \
+        echo
             fi
       ;;
 
@@ -768,14 +779,14 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
             # units
               units=( " days" " hrs" " mins" )
               is_HORIZ_ "${ALIGN}" \
-                            && units=( "d" "h" "m" )
+              && units=( "d" "h" "m" )
 
         echo -n  "${GOTO} ${INDENT2}}${COLOR3}"
         justify_ "${ALIGN}" \
                  "$(awk  -v d="${units[0]}" -v h="${units[1]}" -v m="${units[2]}" \
                          -F"[ |.]+" '{secs=$1;}END
                          {printf "%2d%s %2d%s %2d%s",
-                          secs/86400,d,secs%86400/3600,h,secs%3600/60,m;}' \
+                                  secs/86400,d,secs%86400/3600,h,secs%3600/60,m;}' \
                         /proc/uptime)" \
                  "$((LINE_length1-INDENT2/CHARACTER_width1))"
       ;;
@@ -784,12 +795,10 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
         heading_ "" "${ALIGN}" "${GOTO}" "${INDENT1}" "${COLOR1}" "${FONT1}" "${SPACING}"
             label='MEM:'
 
-            mapfile -t memory < \
-                   <(bash_REMATCH_ '/proc/meminfo' \
-                                   '^[B|C|M|S][R|h|e|u|a].*:[[:blank:]]*([[:digit:]]+)[[:blank:]]')
-
-            mem_used="$((memory[0]-memory[1]-memory[3]-(memory[4]+memory[7]-memory[6])))"
-            mem_perc="$(printf "%4.1f\n" "$((10**11 * mem_used/memory[0]))e-9")"
+            mapfile -d' ' -t memory < \
+                   <(awk 'NR==2{total=$2;used=$3}END
+                          {printf "%d %d %2.1f",used,total,(used/total)*100}' < \
+                         <(free -m))
 
             if is_EMPTY_ "${MEM_text}"
             then #                 memory bar  
@@ -800,26 +809,29 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                 is_HORIZ_ "${ALIGN}" \
                 && width="60"
 
-        echo -n  "\${color $(color_ "${mem_perc%.*}" "${COLOR:-100}")}"
-        echo -n  "\${execbar $((LINE_height1/3)),${width} echo ${mem_perc%.*}}"
+        echo -n  "\${color $(color_ "${memory[2]%.*}" "${COLOR:-100}")}"
+        echo -n  "\${execbar $((LINE_height1/3)),${width} echo ${memory[2]%.*}}"
                  is_CASCADING_ "${ALIGN}" \
-        && echo
+                 && \
+        echo
 
             else #                    text
-                m_line+="\${color $(color_ "${mem_perc%.*}" "${COLOR:-100}")}"
-                m_line+="${mem_perc}%"
-                m_line+=" $((mem_used/1024))${COLOR3}/$((memory[0]/1024))"
+                m_line+="\${color $(color_ "${memory[2]%.*}" "${COLOR:-100}")}"
+                m_line+="${memory[2]}%"
+                m_line+=" ${memory[0]}${COLOR3}/${memory[1]}"
                 m_line+="${FONT_units}${COLOR_units}\${offset 3}MB"
 
                 is_CASCADING_ "${ALIGN}" \
-        && echo -n  "${label}"
+                && \
+        echo -n  "${label}"
+        
         echo -n  "${GOTO} ${INDENT2}}"
         justify_ "${ALIGN}" \
                  "${m_line}" \
                  "$((LINE_length1-INDENT2/CHARACTER_width1))"
             fi
 
-            if [ "${mem_perc%.*}" -ge  80 ]
+            if [[ "${mem_perc%.*}" -ge  80 ]]
             then # high memory usage, who's the biggest hog
         echo -n "${GOTO} $((INDENT2+10))}${FONT1}\${color red}"
         awk '{printf "%-9s %d %2.1f%% %5.1f Mb %5.1f Mb\n",
@@ -831,7 +843,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
       ;;
 
     e)                          # NETWORK SSID #
-        if is_NOT_empty_ "${ACTIVE_wifi}"
+        if is_SET_ "${ACTIVE_wifi}"
         then
         heading_ "ESSID:" "${ALIGN}" "${GOTO}" "${INDENT1}" "${COLOR1}" "${FONT1}" "${SPACING}"
 
@@ -842,15 +854,15 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                                     -F "[. ]+" '$0 ~ wlan {print $4}' /proc/net/wireless)"
               line+="${COLOR_units}\${offset 2}%"
 
-          echo -n  "${GOTO} ${INDENT2}}${COLOR3}"
-          justify_ "${ALIGN}" \
-                   "${line}"\
-                   "$((LINE_length1-(INDENT2/CHARACTER_width1)))"
+        echo -n  "${GOTO} ${INDENT2}}${COLOR3}"
+        justify_ "${ALIGN}" \
+                 "${line}"\
+                 "$((LINE_length1-(INDENT2/CHARACTER_width1)))"
         fi
       ;;
 
     q)                     # Wireless Quality & bitrate #
-        if is_NOT_empty_ "${ACTIVE_wifi}"
+        if is_SET_ "${ACTIVE_wifi}"
         then # TODO need to fiqure out bitrate speed w/o iwconfig
         #heading_ "LINK:" "${ALIGN}" "${GOTO}" "${INDENT1}" "${COLOR1}" "${FONT1}" "${SPACING}"
 
@@ -868,10 +880,11 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
       ;;
 
     i)                           # LAN ADDRESS #
-        if is_NOT_empty_ "${ACTIVE_iface}"
+        if is_SET_ "${ACTIVE_iface}"
         then match='inet addr:([0-9]+[\.][0-9]+[\.][0-9]+[\.][0-9]+)[[:space:]]'
 
-            if is_NOT_empty_ "${ACTIVE_wifi}" && [[ "${ACTIVE_wifi}" != "${ACTIVE_iface}" ]]
+            if is_SET_ "${ACTIVE_wifi}" \
+               && [[ "${ACTIVE_wifi}" != "${ACTIVE_iface}" ]]
             then
         heading_ "${ACTIVE_wifi}:" "${ALIGN}" "${GOTO}" "${INDENT1}" "${COLOR1}" "${FONT1}" "${SPACING}"
 
@@ -892,7 +905,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
       ;;
 
     x)                           # PUBLIC IP ADDRESS #
-        if is_NOT_empty_ "${ACTIVE_iface}"
+        if is_SET_ "${ACTIVE_iface}"
         then
         heading_ "IP:" "${ALIGN}" "${GOTO}" "${INDENT1}" "${COLOR1}" "${FONT1}" "${SPACING}"
 
@@ -910,7 +923,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
       ;;
 
     r)                          # NETWORK REGION
-        if is_NOT_empty_ "${ACTIVE_iface}"
+        if is_SET_ "${ACTIVE_iface}"
         then
         heading_ "GEO:" "${ALIGN}" "${GOTO}" "${INDENT1}" "${COLOR1}" "${FONT1}" "${SPACING}"
 
@@ -940,7 +953,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                 u="\${offset ${HALFSPACE2}}${COLOR_units}${FONT_units}"
                 p_u="\${offset -1}/\${offset -1}s"
                 is_CASCADING_ "${ALIGN}" \
-                && p_u+="\${voffset -2}"
+                && p_u+="${VOFFSET} -2}"
                 b="${1}"; d=''; s=0; S=(' B' {K,M,G,T,E,P,Y,Z}B)
 
                 while ((b > 1024)); do
@@ -974,19 +987,19 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                      <(cat /sys/class/net/"${ACTIVE_iface}"/statistics/{rx,tx}_bytes \
                            | tee "${net_stats}"))
 
-            rxtx=(  "$(( ( (rawbytes[2] - rawbytes[0]) +  dt / 2  ) / dt ))" )
+            rxtx=(  "$(( ( (rawbytes[2] - rawbytes[0]) + ( dt / 2 )  ) / dt ))" )
             rxtx+=( "$((((rawbytes[3]-rawbytes[1])+dt/2)/dt))" )
 
             # to set max upper speed
               speed='/tmp/net-speed'
             # adjust scale for up speed
               hi_up="$(< "${speed}_up")" \
-                    || hi_up=1000
+                         || hi_up=1000
               [[ "${rxtx[1]}" -gt "${hi_up}" ]] \
                                && echo "${rxtx[1]}" > "${speed}_up"
             # adjust scale for down speed
               hi_dn="$(< "${speed}_down")" \
-                    || hi_dn=1000
+                         || hi_dn=1000
               [[ "${rxtx[0]}" -gt "${hi_dn}" ]] \
                                && echo "${rxtx[0]}" > "${speed}_down"
 
@@ -1002,11 +1015,14 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
             s_line+="\${color $(color_ " $((rxtx[0]))" "${COLOR:-${hi_dn}}")}"
             s_line+="$(human_NETSPEED_ "${rxtx[0]}")"
             is_CASCADING_ "${ALIGN}" \
-            && s_line+="\${voffset 1}"
+            && s_line+="${VOFFSET} 1}"
 
         echo -n  "${GOTO} ${INDENT2}}"
+
             [[ "${ALIGN}" =~ ^r ]] \
-        && echo -n "\${offset $((HALFSPACE2*2))}"
+                          && \
+        echo -n "\${offset $((HALFSPACE2*2))}"
+
         justify_ "${ALIGN}" \
                  "${s_line}" \
                  "$((LINE_length1-(INDENT2/CHARACTER_width1)))"
@@ -1015,75 +1031,86 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
 
     d)                         # DISK I/O SPEEDS #
         heading_ "DISKS:" "${ALIGN}" "${GOTO}" "${INDENT1}" "${COLOR1}" "${FONT1}" "${SPACING}"
+        is_HORIZ_ "${ALIGN}" && echo -n "\${offset -7}"
 
             function diskstats_() {
-              renice -15 $BASHPID
-              local align="$1"
-              local file stats match
-                    file=/proc/diskstats
-                    stats="/tmp/diskstats-${ALIGN}"
-                    bash_match='(^.*sd[a-z] .*|^.*blk0p2.*)'
+                renice -10 $BASHPID
+                local align="$1"
+                local file stats match
+                      file=/proc/diskstats
+                      stats="/tmp/diskstats-${ALIGN}"
+                      bash_match='(^.*sd[a-z] .*|^.*blk0p2.*)'
 
-              is_READABLE_ "${stats}_time" \
-              || { touch "${stats}_time";
-                   echo -n "" >  "${stats}"; }
+                is_READABLE_ "${stats}_time" \
+                || { touch "${stats}_time";
+                     echo -n "" >  "${stats}"; }
 
-              mv "${stats}" "${stats:0: -1}" 2>/dev/null \
-              || touch "${stats:0: -1}"
+                mv "${stats}" "${stats:0: -1}" 2>/dev/null \
+                || touch "${stats:0: -1}"
 
-              dt="$(interval_ "$(<"${stats}_time")" "${stats}_time")"
+                dt="$(interval_ "$(<"${stats}_time")" "${stats}_time")"
 
-              (while IFS= read -r a <&3 && IFS= read -r b <&4
-               do echo "${a} ${b}"
-               done ) 3<"${stats:0: -1}"  4< <(bash_REMATCH_ "${file}" "${bash_match}" 'save') \
-               | awk -v dt="${dt}" -v read="${read}" -v write="${write}" -v mb="${mb}" \
-                     '{read_start+=$6;read_end+=$20;write_start+=$10;write_end+=$24;i++}
-                       END
-                      {if (dt > 0 && i >= 2)
-                           printf "%8.3f\n%8.3f",
-                                  ((read_end-read_start)/dt)*512/1024^2,
-                                  ((write_end-write_start)/dt)*512/1024^2;
-                       else printf "\n";}'
+                ( while IFS= read -r a <&3 && IFS= read -r b <&4
+                  do echo "${a} ${b}"
+                  done ) 3<"${stats:0: -1}"  4< <(bash_REMATCH_ "${file}" "${bash_match}" 'save') \
+                                          | \
+                  awk -v dt="${dt}" -v read="${read}" -v write="${write}" -v mb="${mb}" \
+                      '{read_start+=$6;read_end+=$20;write_start+=$10;write_end+=$24;i++}
+                        END
+                       {if (dt > 0 && i >= 2)
+                            printf "%9.3f\n%9.3f",
+                                    ((read_end-read_start)/dt)*512/1024^2,
+                                    ((write_end-write_start)/dt)*512/1024^2;
+                        else printf "\n";}'
             }
 
             mapfile -t diskio < <(diskstats_ "${ALIGN}")
 
-            convert_float() { awk '{printf "%.0f\n", $1*1000 }' <<< "$1"; }
+            convert_float() { awk '{printf "%8.0f\n", $1*1000 }' <<< "$1"; }
             diskio+=( "$(convert_float "${diskio[0]}")" ) 
             diskio+=( "$(convert_float "${diskio[1]}")" )
 
             # upper speed read/write
-              speed='/tmp/disk'; touch "${speed}_read"; touch "${speed}_write"
-              hi_read="$(< "${speed}_read")" \
-                      || hi_read='1'
-              hi_write="$(< "${speed}_write")" \
-                       || hi_write='1'
+              speed='/tmp/disk'
+              is_READABLE_ "${speed}_read" \
+                   || touch "${speed}_read"
+              is_READABLE_ "${speed}_write" \
+                   || touch "${speed}_write"
 
-            # color disk io
-              colors=( "$(color_ "${diskio[2]}" "$((${hi_read:-1}*${COLOR:-1}))")" )
-              colors+=( "$(color_ "${diskio[3]}" "$((${hi_write:-1}*${COLOR:-1}))")" )
+              hi_read="$(< "${speed}_read")" \
+                            || hi_read=10
+              hi_write="$(< "${speed}_write")" \
+                            || hi_write=10
 
             # adjust scale for read/write speed
               [[ "${diskio[2]}" -gt "${hi_read}" ]] \
-                                 && echo "${diskio[2]}" > "${speed}_read"
+                                 && { echo "${diskio[2]}" > "${speed}_read";
+                                      echo "${diskio[2]} ${hi_read}" >> /tmp/temp; }
               [[ "${diskio[3]}" -gt "${hi_write}" ]] \
                                  && echo "${diskio[3]}" > "${speed}_write"
+hi_read="$(( hi_read / 4 ))" hi_write="$(( hi_write / 2 ))"
+            # color disk io
+              colors=( "$(color_ "${diskio[2]}" "$((${hi_read:-1}*${COLOR:-1}))")" )
+              colors+=( "$(color_ "${diskio[3]}" "$((${hi_write:-1}*${COLOR:-1}))")" )
 
             # variables for conky
               offset=0
               [[ "${ALIGN}" =~ ^c ]] \
                             && offset="${CHARACTER_width2}"
               begin="\${offset ${offset}}${COLOR2}${FONT1}"
-              write="${begin}W${COLOR3}"
               read="${begin}R${COLOR3}"
+              write="${begin}W${COLOR3}"
               mb="\${offset $((HALFSPACE2*1))}${COLOR_units}${FONT2}"
               mb+="Mb\${offset -2}/\${offset -2}s "
               is_CASCADING_ "${ALIGN}" \
               && mb+="\${voffset -1}"
 
         echo -n  "${GOTO} ${INDENT2}}"
+
             [[ "${ALIGN}" =~ ^r ]] \
-        && echo -n "\${offset $((HALFSPACE2*6))}"
+                          && \
+        echo -n "\${offset $((HALFSPACE2*6))}"
+
         justify_ "${ALIGN}" \
                  "${read}\${color ${colors[0]}}${diskio[0]}${mb}${write}\${color ${colors[1]}}${diskio[1]}${mb}" \
                  "$((LINE_length1-INDENT2/CHARACTER_width1))"
@@ -1091,9 +1118,13 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
 
     f)                           # DISK USAGE  #
         heading_ "" "${ALIGN}" "${GOTO}" '0' "${COLOR1}" "${FONT1}" "${SPACING}"
-        is_CASCADING_ "${ALIGN}" \
-        && { echo -n  "${HR:0:$(((LINE_length1/2-3)*3))}STORAGE";
-             echo -n  "\${voffset -1}\${hr}\${voffset $((LINE_height1+4))}"; }
+            if is_CASCADING_ "${ALIGN}"
+            then
+        echo -n  "${HR:0:$(((LINE_length1/2-3)*3))}STORAGE"
+        echo -n  "\${voffset -1}\${hr}\${voffset $((LINE_height1+4))}"
+            else
+        echo -n "\${offset 5}"
+            fi
 
             file="/tmp/filesystem-${ALIGN:0:1}"
             fs_data_age="$(/opt/bin/stat -c %Y "${file}" 2>/dev/null)" \
@@ -1101,19 +1132,23 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
 
             # to shorten the list especially for horizontal format
               skip_target=( "flash" "" )
+              local_only=(-l)
 
             if [[ "$(interval_ "${fs_data_age}" )" -gt "${FS_dt}" \
                || "$(is_NOT_file_ "${file}")" ]]
             then # read current data and tee to file
 
                 # (width of line in conky 'x') - (location & length of FREE) + space
-                  width="$((LINE_length1*CHARACTER_width1-INDENT1-(HALFSPACE1*47)))"
+                  width="$((LINE_length1*CHARACTER_width1-(HALFSPACE1*45)))"
                   [[ "${ALIGN}" =~ ^l ]] \
                   && width="$((width-HALFSPACE1*5))"
 
-                { /opt/bin/df   -lh -x tmpfs -x devtmpfs -x squashfs -x iso9660 \
+                { /opt/bin/df   -h "${local_only[@]}" -x tmpfs -x devtmpfs -x squashfs -x iso9660 \
                                 --output=target,avail,used,pcent \
-                              | tail -n +2 \
+                              | \
+                          tail -n +2 \
+                              | \
+                    /opt/bin/sort -k 4 -i \
                               | \
                   while read -r TARGET AVAIL USED PCENT
                   do
@@ -1125,32 +1160,31 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                       [[ "${percent}" -lt 1 \
                       || "${percent}" -gt 100 ]] \
                                        && percent=99
-     
                       if is_HORIZ_ "${ALIGN}"
                       then # print linear
-        echo -n  "\${offset 6}${COLOR1}"
-        echo -n  "${target:0:8}"
+        echo -n  "\${offset 0}${COLOR1}"
+        echo -n  " ${target:0:8}"
         echo -n  "\${color $(color_ "$((percent))" "${COLOR:-100}")}"
         echo -n  "\${offset ${HALFSPACE1}}$(printf "%5s" "${AVAIL}") "
                       else # print table
-        echo -n  "${GOTO} $((INDENT1+(HALFSPACE1*3)))}${COLOR1}"
+        echo -n  "${GOTO} $((INDENT1+(HALFSPACE1*1)))}${COLOR1}"
         echo -n  "${target:0:15}"
         echo -n  "${GOTO} ${INDENT2}}${COLOR2}"
-        echo -n  "$(printf %18s "${AVAIL}")"
-        echo -n  "${GOTO} $((INDENT2+19*CHARACTER_width1))}"
+        echo -n  "$(printf %16s "${AVAIL}")"
+        echo -n  "${GOTO} $((INDENT2+CHARACTER_width1*17))}"
         echo -n  "\${color $(color_ "$((percent))" "${COLOR:-100}")}"
         echo -n  "\${execbar ${BAR_height},${width} echo '${percent%.*}'}"
-        echo -n  "${GOTO} $((INDENT2+18*CHARACTER_width1))}"
+        echo -n  "${GOTO} $((INDENT2+HALFSPACE1*29))}"
         echo -n "\${offset $((width*${percent%.*}/110-HALFSPACE1*3))}"
         echo -n  "\${color $(color_ $((100-${percent%.*})) "$((99*${COLOR:-1}+1))")}$(printf "%4s" "${USED}")"
         echo
                       fi
-              done ## sort on percent remaining
+                  done ## sort on percent remaining
                 } \
                   |  /opt/bin/sort -k "10" \
                   | /usr/bin/head -c -1 \
                   | tee "${file}"
-                ## OR sort on total free space ##
+                ## OR sort on total free space
                 #} \
                   #| /opt/bin/sort --human-numeric-sort -k "6" \
                   #| /usr/bin/head -c -1 \
@@ -1160,7 +1194,8 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
             fi
 
             is_CASCADING_ "${ALIGN}" \
-        && echo
+            && \
+        echo
       ;;
 
     p)                            # PROCESSES #
@@ -1188,7 +1223,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
             # top in batch mode returns a variable number of lines
               list_pad="$ a\\\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n\r\n"
 
-        else # printing horizontally limit # of processes
+        else # printing horizontally, limit # of processes
             NPROCS=1
         fi
 
@@ -1200,7 +1235,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                  printf "%s%-14.14s%7d%s%6.1f%%%s%5.1f%%\n",
                       indent,$11,$1,cpu,$7,mem,$8;
               else printf}' < \
-            <(/opt/bin/top -bn 2 -d 0.01 -c -o +"${SORT}" \
+            <(/opt/bin/top  -bn 2 -d 0.01 -c -o +"${SORT}" \
                            | sed -e '/top/d' \
                            | sed "${list_pad}" \
                            | /usr/bin/tail -n +11 \
@@ -1212,61 +1247,61 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
        then # print lots of superfluose data over 1/10 of a second
             # run script with -o & add output to conkyrc from here to # EOO # 
             # then comment out, because it seems like wasted time
-        # Heading
-           echo -n  "${GOTO} 0}${COLOR2}${FONT1}"
+         # Heading
+        echo -n  "${GOTO} 0}${COLOR2}${FONT1}"
 
-           echo     "\${alignc}$(bash_REMATCH_ /etc/os-release '^PR.*"(.*+)"') "
+        echo     "\${alignc}$(bash_REMATCH_ /etc/os-release '^PR.*"(.*+)"') "
 
               # hardware
-          echo -n  "${GOTO} 0}${FONT1}"
-          echo "\${alignc}$(bash_REMATCH_ /proc/cpuinfo '^Ha.*:[[:blank:]](.*+)')"
+        echo -n  "${GOTO} 0}${FONT1}"
+        echo "\${alignc}$(bash_REMATCH_ /proc/cpuinfo '^Ha.*:[[:blank:]](.*+)')"
 
               # model name  
-          #echo -n  "${GOTO} 0}${FONT1}"
-          #echo "\${alignc}$(bash_REMATCH_ /proc/cpuinfo '^model.*:[[:blank:]](.*+)')"
+        #echo -n  "${GOTO} 0}${FONT1}"
+        #echo "\${alignc}$(bash_REMATCH_ /proc/cpuinfo '^model.*:[[:blank:]](.*+)')"
 
               UNAME="$(uname -a)"
 
               # os
-          echo -n  "${GOTO} 0}${COLOR1}${FONT2}"
-          echo       "\${alignc}${UNAME: -17}"
+        echo -n  "${GOTO} 0}${COLOR1}${FONT2}"
+        echo       "\${alignc}${UNAME: -17}"
 
               # kernel
-          echo -n  "${GOTO} 0}${COLOR1}${FONT2}"
-          echo     "\${alignc}$(echo "${UNAME:0:37}"|tr '#' d)"
-          echo -n  "\${voffset -2}"
-          echo     "\${alignc}${COLOR1}${HR:0:117}"
+       echo -n  "${GOTO} 0}${COLOR1}${FONT2}"
+       echo     "\${alignc}$(echo "${UNAME:0:37}"|tr '#' d)"
+       echo -n  "\${voffset -2}"
+       echo     "\${alignc}${COLOR1}${HR:0:117}"
   ## EOO #########################################################################
 
               # cpu configuration & governor
-          echo -n  "${GOTO} ${INDENT2}}\${voffset ${SPACING}}${COLOR1}${FONT2}"
-          echo -n  "\${alignc}(${NCORES})"
-          echo -n  " cores governer: ${COLOR3}"
-          echo     "$(</sys/devices/system/cpu/cpufreq/policy0/scaling_governor)"
+       echo -n  "${GOTO} ${INDENT2}}\${voffset ${SPACING}}${COLOR1}${FONT2}"
+       echo -n  "\${alignc}(${NCORES})"
+       echo -n  " cores governer: ${COLOR3}"
+       echo     "$(</sys/devices/system/cpu/cpufreq/policy0/scaling_governor)"
 
 
               # entropy available
-          echo -n  "${GOTO} ${INDENT1}}${COLOR1}${FONT2}"
-          echo -n  "\${alignc}${COLOR1}Random:"
-          echo -n  "${COLOR2}pool:${COLOR3}"
-          echo -n  "$(</proc/sys/kernel/random/poolsize)"
-          echo -n  "${COLOR2} available:${COLOR3}"
-          echo     "$(</proc/sys/kernel/random/entropy_avail)"
+      echo -n  "${GOTO} ${INDENT1}}${COLOR1}${FONT2}"
+      echo -n  "\${alignc}${COLOR1}Random:"
+      echo -n  "${COLOR2}pool:${COLOR3}"
+      echo -n  "$(</proc/sys/kernel/random/poolsize)"
+      echo -n  "${COLOR2} available:${COLOR3}"
+      echo     "$(</proc/sys/kernel/random/entropy_avail)"
 
               # roll your own
-          #echo -n  "${GOTO} ${INDENT1}}${COLOR1}:"
-          #echo     "\${alignc}Something interesting"
+       #echo -n  "${GOTO} ${INDENT1}}${COLOR1}:"
+       #echo     "\${alignc}Something interesting"
 
           echo     "\${voffset -3}${COLOR1}\${hr 1}"
 
         else # outputting horizontally
-          echo -n  "${GOTO} ${INDENT1}}${COLOR1}${FONT1}Gvn:"
-          echo -n  "${COLOR2}"
-          echo -n  "$(</sys/devices/system/cpu/cpufreq/policy0/scaling_governor)"
-          echo -n  "${GOTO} ${SPACING}}${COLOR1}Rnd:"
-          echo -n  "${COLOR3}$(</proc/sys/kernel/random/entropy_avail)"
-          echo -n  "${COLOR2}/${COLOR3}$(</proc/sys/kernel/random/poolsize)"
-       fi
+       echo -n  "${GOTO} ${INDENT1}}${COLOR1}${FONT1}Gvn:"
+       echo -n  "${COLOR2}"
+       echo -n  "$(</sys/devices/system/cpu/cpufreq/policy0/scaling_governor)"
+       echo -n  "${GOTO} ${SPACING}}${COLOR1}Rnd:"
+       echo -n  "${COLOR3}$(</proc/sys/kernel/random/entropy_avail)"
+       echo -n  "${COLOR2}/${COLOR3}$(</proc/sys/kernel/random/poolsize)"
+        fi
       ;;
 
     w) # WINDOW WIDTH AND LINE HEIGHT FONT1 & FONT2
@@ -1353,8 +1388,9 @@ awk -v label="${label}" -v runtime="$((($(/usr/bin/date +%s%N)-tss)/1000000))" '
 
   esac
   done
-                 is_HORIZ_ "${ALIGN}" \
-          || echo   "\${alignc}${COLOR1}${HR:0:$((LINE_length1*3))}"
+                 is_CASCADING_ "${ALIGN}" \
+                 && \
+          echo   "\${alignc}${COLOR1}${HR:0:$((LINE_length1*3))}"
 
   shift $((OPTIND-1))
 # Total time for script
