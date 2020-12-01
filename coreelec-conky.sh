@@ -82,7 +82,7 @@ tss=$(/usr/bin/date +%s%N)
   # offset between options
     SPACING=1
   # height of filesystem bar (odd numbers center better)
-    BAR_height=9
+    BAR_height=11
   # set to 0 for monochromatic data
     COLOR=
   # set to show memory stats as text
@@ -139,11 +139,12 @@ set -- "${@/%/ocltmueqirxsdf}"
 #
 # add processes
 #set -- "${@/%/p}"
+#
 # for benchmarking
 #set -- "${@/%/v}"
 #
-#ALIGN=right
 #FORMAT=long
+#ALIGN=right
 #
 else # horizontal
 #
@@ -168,10 +169,9 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
     GOTO="\${goto "
     VOFFSET="\${voffset "
   # left hr since conky can't define hr width
-    # character is unicode, so cut at multiples of 3 e.g. ${HR:0:9}
     while read -r num; do HR+="―"; done < <(seq "$((LINE_length2))")
   # delay for refreshing disk usage to save time
-    FS_dt=16
+    FS_dt=17
   # the @ character prints below the line
     ASTERISK="\${voffset -1}@\${voffset 1}"
   export LC_ALL=C
@@ -311,6 +311,18 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
     return 0
  }
  export -f justify_
+ 
+  function print_RULE_() {
+      local hr="$1"
+      local length="$2"
+      until (( length % 3 == 0 ))
+      do ((length++))
+      done
+
+      echo -n  "${hr:0:${length}}"
+  return 0
+ }
+ export -f print_RULE_
 
   function bash_REMATCH_() { # Return specific data in matching line of file,
       local output           # command output, or string
@@ -439,40 +451,21 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
     c)                               # CPU #
         heading_ "CPU:" "${ALIGN}" "${GOTO}" "${INDENT1}" "${COLOR1}" "${FONT1}" "${SPACING}"
 
-              function core_PER100() { # Get cpu stats
-                  local cpu_usage=("$@")
-                  local ncores
-                  ncores="$(((${#cpu_usage[@]}-2)/2))"
-                  for ((core=0;core<="${ncores}";core++))
-                  do awk '{S13+=$13;S2+=$2;S15+=$15;S4+=$4;S16+=$16;S5+=$5}END
-                         {printf "%6.1f\n",
-                                  (S13-S2+S15-S4)*100/(S13-S2+S15-S4+S16-S5);}' < \
-                         <(printf '%s %s\n' \
-                                  "${cpu_usage[$core]}" "${cpu_usage[$((core+ncores+1))]}")
-                  done
-              return 0; }
+              function pcpu_() {
+                  local align="$1"
+                  local file stats match
+                        file=/proc/stat
+                        stats="/tmp/stat-${ALIGN}"
+                        bash_match='(^cpu.*)+'
+                        # make room for new reading
+                          mv "${stats}" "${stats:0: -1}" 2>/dev/null \
+                            || touch "${stats:0: -1}"
+                          echo -n "" > /tmp/stats-recent
 
-        # Get cpu stats
-        # variables for bash_REMATCH_
-          file='/proc/stat'
-          cpu_stats="/tmp/${file##*/}-${ALIGN}"
+                  ( while IFS= read -r a <&3 && IFS= read -r b <&4; do echo "${a} ${b}" | tee -a /tmp/stats-recent; done ) 3<"${stats:0: -1}" 4< <(bash_REMATCH_ "${file}" "${bash_match}" "${ALIGN}") | awk '{printf "%6.1f\n",($13-$2+$15-$4)*100/($13-$2+$15-$4+$16-$5)}'
+              }
 
-        # overall % only if FORMAT short
-          match='(^cpu .*)+'
-          [[ "${FORMAT}" =~ ^l ]] \
-               && match='(^cpu.*)+'
- 
-        # make room for current reading
-          mv "${cpu_stats}" "${cpu_stats:0: -1}" 2>/dev/null \
-              || touch "${cpu_stats:0: -1}" # create
-
-        # array of previous & current cpu stats 
-          mapfile -t cpu_usage 2>/dev/null < \
-                 <(cat "${cpu_stats:0: -1}"  2>/dev/null \
-                 <(bash_REMATCH_ "${file}" "${match}" "${ALIGN}" ))
-
-        # total and per core %
-          mapfile -t core_per100 < <(core_PER100 "${cpu_usage[@]}")
+        mapfile -t core_per100 < <(pcpu_ "${ALIGN}")
 
         # heterogenous cpu?
           HETEROGENEOUS="$(bash_REMATCH_  '/proc/cpuinfo' '^CPU p.*x([[:alnum:]]+)' \
@@ -562,16 +555,13 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                        $1/10^3,units_style}' <<< "${1}"
               return 0; }
 
-              function core_bL_() { # get usage for a range of cores
-                  local start="$1"
-                  local end="$2"
-                  awk '{sum13+=$13;sum2+=$2;sum15+=$15;sum4+=$4;sum16+=$16;sum5+=$5}END
-                       {printf "%6.1f",
-                        (sum13-sum2+sum15-sum4)*100/(sum13-sum2+sum15-sum4+sum16-sum5);}'  < \
-                      <(for ((core="${start}";core<="${end}";core++))
-                         do printf '%s %s\n' "${cpu_usage[$core]}" "${cpu_usage[$((core+NCORES+1))]}"
-                         done)
-              return 0; }
+              function bl_() {
+                  local align="$1"
+                  local stats
+                        stats="/tmp/stat-${ALIGN}"
+
+                  while IFS= read -r line; do echo "${line}"; done < /tmp/stats-recent | tee >(awk 'NR == 4 || NR == 7 {S13+=$13;S2+=$2;S15+=$15;S4+=$4;S16+=$16;S5+=$5}END{printf "%6.1f\n",(S13-S2+S15-S4)*100/(S13-S2+S15-S4+S16-S5)}') >(awk 'NR == 2 || NR == 3 {S13+=$13;S2+=$2;S15+=$15;S4+=$4;S16+=$16;S5+=$5}END{printf "%6.1f\n",(S13-S2+S15-S4)*100/(S13-S2+S15-S4+S16-S5)}') >/dev/null
+              }
 
               # frequency current, minimum, & maximum
                 mapfile -t fqz < \
@@ -580,21 +570,20 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
               case "${HETEROGENEOUS}" in
 
                 2) # add usage & frequency for heterogeneous 'big' cores
-                    big_perc="$(core_bL_ 3 6)"
-                    LITTLE_perc="$(core_bL_ 1 2)"
+                   mapfile -t sides < <(bl_ "${ALIGN}")
 
                    # concatenate line so its closer to 80 columns
                      l_string="\${offset 1}${FONT2}"
-                     l_string+="\${color $(color_ "${big_perc%.*}" "${COLOR:-100}")}"
-                     l_string+="${big_perc}"
+                     l_string+="\${color $(color_ "${sides[1]%.*}" "${COLOR:-100}")}"
+                     l_string+="${sides[1]}"
                      l_string+="\${offset ${HALFSPACE2}}${COLOR_units}%"
                      l_string+="\${offset ${HALFSPACE2}}${ASTERISK}"
                      l_string+="\${offset -${CHARACTER_width2}}"
                      l_string+="\${color $(color_ "$((fqz[3]-fqz[5]))" "$(((fqz[4]-fqz[5])*${COLOR:-1}))")}"
                      l_string+="$(human_FREQUENCY_ "${fqz[3]}")"
                      l_string+="\${offset ${HALFSPACE2}}${VOFFSET} -1}"
-                     l_string+="\${color $(color_ "${LITTLE_perc%.*}" "${COLOR:-100}")}"
-                     l_string+="${FONT2}${LITTLE_perc}"
+                     l_string+="\${color $(color_ "${sides[0]%.*}" "${COLOR:-100}")}"
+                     l_string+="${FONT2}${sides[0]}"
                      l_string+="\${offset 2}${COLOR_units}%\${offset 2}"
                   ;;
 
@@ -646,17 +635,21 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
         esac
 
             if [[ "${FORMAT}" =~ ^longe \
-                              || "${core_per100[0]%.*}" -gt 70 ]]
+               || "${core_per100[0]%.*}" -gt 70 ]]
             then # iowait and softirq for case: longe* or high cpu usage
-        echo -n "${FONT2}${COLOR1}"
-        awk '{start=($2+$3+$4+$5+$6+$7+$8+$9+$10);
-              end=($13+$14+$15+$16+$17+$18+$19+$20+$21);
-              iowStart=($6);iowEnd=($17);
-              sirqStart=($8);sirqEND=($19)}END
-             {printf "\${alignc}iowait: %6.4f%%  softirq: %6.4f%%",
-                      (iowEnd-iowStart)*100/(end-start),
-                      (sirqEND-sirqStart)*100/(end-start);}'  < \
-           <(printf "%s %s\n" "${cpu_usage[0]}" "${cpu_usage[$((NCORES+1))]}")
+                echo -n "${FONT2}${COLOR1}"
+                while IFS= read -r line
+                do echo "${line}"
+                done < /tmp/stats-recent \
+                     | \
+        awk 'NR==1||NR==8{start=($2+$3+$4+$5+$6+$7+$8+$9+$10);
+                          end=($13+$14+$15+$16+$17+$18+$19+$20+$21);
+                          iowStart=($6);iowEnd=($17);
+                          sirqStart=($8);sirqEND=($19)}
+                          END
+                         {printf "\${alignc}iowait: %6.4f%%  softirq: %6.4f%%",
+                                 (iowEnd-iowStart)*100/(end-start),
+                                 (sirqEND-sirqStart)*100/(end-start);}'
                 is_CASCADING_ "${ALIGN}" \
                 && \
         echo
@@ -786,15 +779,17 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
         heading_ "UPTIME:" "${ALIGN}" "${GOTO}" "${INDENT1}" "${COLOR1}" "${FONT1}" "${SPACING}"
 
             # units
-              units=( " days" " hrs" " mins" )
+              units=( " day(s)" " hrs" " mins" )
               is_HORIZ_ "${ALIGN}" \
               && units=( "d" "h" "m" )
 
         echo -n  "${GOTO} ${INDENT2}}${COLOR3}"
         justify_ "${ALIGN}" \
                  "$(awk  -v d="${units[0]}" -v h="${units[1]}" -v m="${units[2]}" \
-                         -F"[ |.]+" '{secs=$1;}END
-                         {printf "%2d%s %2d%s %2d%s",
+                         -F"[ |.]+" \
+                         '{secs=$1;}
+                         END
+                         {printf "%d%s %2d%s %2d%s",
                                   secs/86400,d,secs%86400/3600,h,secs%3600/60,m;}' \
                         /proc/uptime)" \
                  "$((LINE_length1-INDENT2/CHARACTER_width1))"
@@ -1130,7 +1125,8 @@ echo "${diskio[2]} ${hi_read}" >> /tmp/temp
         heading_ "" "${ALIGN}" "${GOTO}" '0' "${COLOR1}" "${FONT1}" "${SPACING}"
             if is_CASCADING_ "${ALIGN}"
             then
-        echo -n  "${HR:0:$(((LINE_length1/2-3)*3))}STORAGE"
+        echo -n  "$(print_RULE_ "${HR}" "$(((LINE_length1/2-3)*3))")"
+        echo -n  "STORAGE"
         echo -n  "\${voffset -1}\${hr}\${voffset $((LINE_height1+4))}"
             else
         echo -n "\${offset 5}"
@@ -1138,14 +1134,14 @@ echo "${diskio[2]} ${hi_read}" >> /tmp/temp
 
             file="/tmp/filesystem-${ALIGN:0:1}"
             fs_data_age="$(/opt/bin/stat -c %Y "${file}" 2>/dev/null)" \
-                        || fs_data_age="$((now+FS_dt+1))"
+                        || fs_data_age="$((FS_dt+$(/usr/bin/date +%s)+1))"
 
             # to shorten the list especially for horizontal format
               skip_target=( "flash" "" )
               local_only=(-l)
 
-            if [[ "$(interval_ "${fs_data_age}" )" -gt "${FS_dt}" \
-               || "$(is_NOT_file_ "${file}")" ]]
+            if is_NOT_file_ "${file}" \
+               || [[ "$(interval_ "${fs_data_age}" )" -gt "${FS_dt}" ]]
             then # read current data and tee to file
 
                 # (width of line in conky 'x') - (location & length of FREE) + space
@@ -1183,7 +1179,7 @@ echo "${diskio[2]} ${hi_read}" >> /tmp/temp
         echo -n  "$(printf %14s "${AVAIL}")"
         echo -n  "${GOTO} $((INDENT2+CHARACTER_width1*15))}"
         echo -n  "\${color $(color_ "$((percent))" "${COLOR:-100}")}"
-        echo -n  "\${execbar ${BAR_height},${width} echo '${percent%.*}'}"
+        echo -n  "\${execbar ${BAR_height},${width} echo \"${percent%.*}\"}"
         echo -n  "${GOTO} $((INDENT2+HALFSPACE1*27))}"
         echo -n "\${offset $((width*${percent%.*}/110-HALFSPACE1*5))}"
         echo -n  "\${color $(color_ $((100-${percent%.*})) "$((99*${COLOR:-1}+1))")}$(printf "%4s" "${USED}")"
@@ -1211,7 +1207,10 @@ echo "${diskio[2]} ${hi_read}" >> /tmp/temp
         if is_CASCADING_ "${ALIGN}"
         then
         heading_ "" "${ALIGN}" "${GOTO}" '0' "${COLOR1}" "${FONT1}" "$((SPACING+2))"
-        echo -n  "${HR:0:$(((LINE_length1/2-7)*3))}PROCESSES${HR:0:3}"
+        echo -n  "$(print_RULE_ "${HR}" "$(((LINE_length1/2-7)*3))")"
+        echo -n  "STORAGE"
+        echo -n  "$(print_RULE_ "${HR}" "3")"
+
         echo -n  "[$(bash_REMATCH_ '/proc/stat' 'running ([[:digit:]]+)')]"
         echo     "\${voffset -1}\${hr}\${voffset $((LINE_height1/3))}"
 
@@ -1244,7 +1243,8 @@ echo "${diskio[2]} ${hi_read}" >> /tmp/temp
                  printf "%s%-14.14s%7d%s%6.1f%%%s%5.1f%%\n",
                       indent,$11,$1,cpu,$7,mem,$8;
               else printf}' < \
-            <(/opt/bin/top  -bn 2 -d 0.01 -c -o +"${SORT}" \
+            <(renice -10 $BASHPID
+              /opt/bin/top  -bn 2 -d 0.01 -c -o +"${SORT}" \
                            | sed -e '/top/d' \
                            | sed "${list_pad}" \
                            | /usr/bin/tail -n +11 \
@@ -1279,7 +1279,7 @@ echo "${diskio[2]} ${hi_read}" >> /tmp/temp
        echo -n  "${GOTO} 0}${COLOR1}${FONT2}"
        echo     "\${alignc}$(echo "${UNAME:0:37}"|tr '#' d)"
        echo -n  "\${voffset -2}"
-       echo     "\${alignc}${COLOR1}${HR:0:117}"
+       echo     "\${alignc}${COLOR1}$(print_RULE_ "${HR}" "117")"
   ## EOO #########################################################################
 
               # cpu configuration & governor
@@ -1356,7 +1356,8 @@ echo "${diskio[2]} ${hi_read}" >> /tmp/temp
 v) # FOR BENCHMARKING see heading to delete using sed
 if is_CASCADING_ "${ALIGN}"; then
 echo -n "\${voffset $((SPACING*1+3))}${COLOR1}"
-echo    "${HR:0:$(((LINE_length1/2-6)*3))}Runtime Stats\${voffset -1}\${hr}"
+echo -n  "$(print_RULE_ "${HR}" "$(((LINE_length1/2-6)*3))")Runtime Stats\${voffset -1}\${hr}"
+echo
 else
 echo -n "${GOTO} $((INDENT1+15))}${COLOR1}"
 fi
@@ -1399,7 +1400,7 @@ awk -v label="${label}" -v runtime="$((($(/usr/bin/date +%s%N)-tss)/1000000))" '
   done
                  is_CASCADING_ "${ALIGN}" \
                  && \
-          echo   "\${alignc}${COLOR1}${HR:0:$((LINE_length1*3))}"
+          echo   "\${alignc}${COLOR1}$(print_RULE_ "${HR}" "$((LINE_length1*3))")"
 
   shift $((OPTIND-1))
 # Total time for script
