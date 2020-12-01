@@ -62,13 +62,13 @@
            re='^(0*(1?[0-9]{1,2}|2([0-4][0-9]|5[0-5]))\.){3}'
            re+='0*(1?[0-9]{1,2}|2([0-4][0-9]|5[0-5]))$'
 
-           if [[ $ip_host =~ $re ]]
+           if [[ "${ip_host}" =~ $re ]]
            then timeout 2 ping -c 1 "$ip_host" >/dev/null 2>&1 ||
                 { echo "Can't reach ${ip_host} try again"; exit 1; }
            else timeout 2 ping -c 1 "$ip_host" >/dev/null 2>&1 ||
                 { echo "Can't reach ${ip_host} try again"; exit 1; }
            fi
-           HOSTS=($ip_host)
+           HOSTS=( "${ip_host}" )
            n=1
        fi
   fi
@@ -133,10 +133,10 @@
   if ssh root@"${HOST}" '[ -r /storage/.opt/bin/coreelec-conky.sh ]'
   then # file exists
          read -rp "file exists, replace [y/N] " reply
-         reply=${reply:-N}
-         if [[ "${reply}" = +(N*|n*) ]]
+         reply="${reply:-N}"
+         if [[ "${reply}" =~ ^N|^n ]]
          then echo "exiting... Goodbye!"; exit 1
-         elif [[ "${reply}" = +(Y*|y*) ]]
+         elif [[ "${reply}" =~ ^Y|^y ]]
          then echo "moving existing script to coreelec-conky.sh.bak"
               ssh root@"${HOST}" mv /storage/.opt/bin/coreelec-conky.sh /storage/.opt/bin/coreelec-conky.sh.bak
          else echo " Invalid reply... Goodbye!"; exit 1
@@ -145,7 +145,7 @@
 
   # modifying conkyrc with $HOST
     echo -e "\nmodifying coreelec-conkyrc with ${HOST}"
-    sed -i -e "s/<HOST>/${HOST}/g" ./coreelec-conkyrc
+    sed  -i -e "s/<HOST>/${HOST}/g" ./coreelec-conkyrc
 
  # copy script and make executable 
    echo "copying and chmoding file"
@@ -153,7 +153,8 @@
    ssh root@"${HOST}" 'chmod +x /storage/.opt/bin/coreelec-conky.sh'
 
  # copy conky config to home/.conky
-   [ -d ~/.conky ] || { echo "creating directory ~/.conky/"; mkdir ~/.conky; }
+   [ -d ~/.conky ] \
+     || { echo "creating directory ~/.conky/"; mkdir ~/.conky; }
    cp ./coreelec-conkyrc ~/.conky/
  # run conky 
    echo " Now run: conky -c ~/.conky/coreelec-conkyrc"
