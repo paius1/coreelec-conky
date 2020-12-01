@@ -143,6 +143,10 @@
          fi
   fi
 
+  # modifying conkyrc with $HOST
+    echo -e "\nmodifying coreelec-conkyrc with ${HOST}"
+    sed -i -e "s/<HOST>/${HOST}/g" ./coreelec-conkyrc
+
  # copy script and make executable 
    echo "copying and chmoding file"
    scp ./coreelec-conky.sh  root@"${HOST}":/storage/.opt/bin/

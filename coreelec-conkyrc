@@ -1,13 +1,13 @@
 conky.config = {
 -- -- Conky settings -- #
 	background = false,
---  set to 1 for odd intervals -- 
-	update_interval = 1,
+-- -- set to 1 for odd intervals
+--	update_interval = 1,
 	double_buffer = true,
 
 -- -- Window specifications -- #
 
-	own_window_class = 'coreelec',
+	own_window_class = 'core-elec',
 	own_window = true,
 	own_window_type = 'desktop',
 	own_window_hints = 'undecorated,sticky,skip_taskbar,skip_pager,below',
@@ -33,9 +33,9 @@ conky.config = {
 
 -- Text settings -- #
 	font = 'Hack:size=10',
-    override_utf8_locale = true,
-    max_user_text = 65536,
-    text_buffer_size = 16384,
+	override_utf8_locale = true,
+	max_user_text = 16384,
+	text_buffer_size = 8192,
 	use_xft = true,
 	xftalpha = 1,
 	uppercase = false,
@@ -43,21 +43,23 @@ conky.config = {
 -- Color settings -- #
 	default_color = '#45DFE8',
 	color1 = '#06939B',
-    color2 = '#45DFE8',
-    color3 = '#ADD8E6',
+	color2 = '#43D3DA',
+	color3 = '#9FEEF3',
 
 -- Alignment settings -- #
 	alignment = 'top_left',
-	gap_x = 20,
-	gap_y = 40,
+	gap_x = 10,
+	gap_y = 32,
 
+--  This should be set to ensure all lines visible !horiz--
+	minimum_height = 560,
 	minimum_width = 290,
 	maximum_width = 290,
 
---  This should be set to ensure all lines visible !horiz--
-	minimum_height = 690,
 };
 
 conky.text = [[
-${texecpi 10 ssh coreelec /opt/bin/coreelec-conky.sh - }
+${if_match  ${tcp_ping <HOST> 40000} > 10}${texecpi 4 ssh root@<HOST> /opt/bin/coreelec-conky.sh -}${else}\
+${color #ff3200}${goto 0}not connected${endif}
 ]];
+
