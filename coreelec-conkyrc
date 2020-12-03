@@ -59,7 +59,7 @@ conky.config = {
 };
 
 conky.text = [[
-${if_match  ${tcp_ping coreelec 40000} > 10}${texecpi 4 ssh root@coreelec /opt/bin/coreelec-conky.sh -}${else}\
+${if_match  ${tcp_ping <HOST> 40000} > 10}${texecpi 4 ssh root@<HOST> /opt/bin/coreelec-conky.sh -}${else}\
 ${color #ff3200}${goto 0}not connected${endif}
 ]];
 
