@@ -233,7 +233,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
       [ "${color#-}" -ge 1 ] \
                       || color=1
       /usr/bin/tail  -n "${color#-}" < <(gradient_) \
-                    | /usr/bin/head -1
+                  | /usr/bin/head -1
   return 0
  } 
  export -f color_
@@ -241,11 +241,11 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
   function print_RULE_() {
       local hr="$1"
       local length="$2"
-      until (( length % 3 == 0 ))
+      until ((length%3==0))
       do ((length++))
       done
 
-      echo -n  "${hr:0:${length}}"
+      echo -n "${hr:0:${length}}"
   return 0
  }
  export -f print_RULE_
@@ -290,11 +290,11 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
           r*|c*)
                  # remove any leading & trailing whitespaces
                    string="$(sed -e 's/}[ \t]*/}/' -e 's/^[[:space:]]*//' \
-                                -e 's/[[:space:]]*$//' <<< "${string}")"
+                                 -e 's/[[:space:]]*$//' <<< "${string}")"
 
                  # length of string stripped of conky formating
                    length_text="$(("$(sed  -e "s/[\${][^}]*[}]//g" <<< "${string}" \
-                                          | wc -c)"-1))"
+                                        | wc -c)"-1))"
 
                  # check length of text v length of line
                    [ "${length_text}" -gt "${line_length}" ] \
@@ -323,33 +323,30 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
  }
  export -f justify_
 
-  function bash_REMATCH_() { # Return specific data in matching line of file,
-      local output           # command output, or string
+  function bash_REMATCH_() { # Return specific data in matching line of
+      local output           # command output, file, or string
       local source="$1"
       local pattern="$2"
       is_SET_ "$3" \
       && output="/tmp/${source##*/}-${3}"
 
-      if command -v "${source%% *}" > /dev/null
-      then                   # is a command
-          while IFS= read -r line
-          do if [[ "${line}" =~ ${pattern} ]]
-             then echo  "${BASH_REMATCH[1]}" \
-                       | tee -a "${output:-/dev/null}"
-             fi
+      if command -v "${source%% *}" > /dev/null       # command
+      then while IFS= read -r line
+           do if [[ "${line}" =~ ${pattern} ]]
+              then echo  "${BASH_REMATCH[1]}" \
+                      | tee -a "${output:-/dev/null}"
+              fi
           done < <(${source})
-      elif is_READABLE_ "${source}"
-      then                    # is a file, clear existing to allow use of append
-          echo -n "" > "${output:-/dev/null}"
-          while IFS= read -r line
-          do if [[ "${line}" =~ ${pattern} ]]
-             then echo  "${BASH_REMATCH[1]}" \
-                       | tee -a "${output:-/dev/null}"
-             fi
-          done < "${source}"
-      else                    # is a string
-          [[ "${source}" =~ ${pattern} ]] 
-          echo "${BASH_REMATCH[1]}"
+      elif is_READABLE_ "${source}"                    # file
+      then echo -n "" > "${output:-/dev/null}"
+           while IFS= read -r line
+           do if [[ "${line}" =~ ${pattern} ]]
+              then echo  "${BASH_REMATCH[1]}" \
+                      | tee -a "${output:-/dev/null}"
+              fi
+           done < "${source}"
+      else [[ "${source}" =~ ${pattern} ]]             # string
+           echo "${BASH_REMATCH[1]}"
       fi
   return 0
  }
@@ -383,17 +380,17 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
       local file="$1"
 
       /opt/bin/stat -c %Y "${file}" 2>/dev/null \
-      || echo $?
+               || echo $?
       return 0
  }
-     export -f created_
+ export -f created_
 
   function delay_() {
       local then="$1"
       local file="$2"
       local now
       now="$(/usr/bin/date  +%s \
-                           | tee "${file:-/dev/null}")"
+                         | tee "${file:-/dev/null}")"
 
       echo -n "$((now-${then:-${CURL_dt}}))"
   return 0
@@ -458,7 +455,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
         CURL_dt=180
   fi
 
-  while getopts "ocltmueqxirspfdhwv" opt
+  while getopts "ocltmueqxirspfdwvh" opt
   do
   case "${opt}" in
 
@@ -478,14 +475,15 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                            && \
                            IFS= read -r b <&4
                     do     echo  "${a} ${b}" \
-                                | tee -a /tmp/cpu_stats-"${ALIGN:0:1}"
+                              | tee -a /tmp/cpu_stats-"${ALIGN:0:1}"
                     done ) \
                            3<"${cpu_stats:0: -1}" \
                            4< <(bash_REMATCH_ "${file}" "${bash_match}" "${ALIGN}") \
-                    | awk '{if (NR != "")
-                            printf "%6.1f\n",
-                                    ($13-$2+$15-$4)*100/($13-$2+$15-$4+$16-$5);
-                            else print 0;}'
+                       | \
+                    awk '{if (NR != "")
+                          printf "%6.1f\n",
+                                  ($13-$2+$15-$4)*100/($13-$2+$15-$4+$16-$5);
+                          else print 0;}'
               }
 
         mapfile -t core_per100 < <(pcpu_ "${ALIGN}")
@@ -505,7 +503,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                    h="$((LINE_height1*2))"
                    w="$(((LINE_length1*CHARACTER_width1-HALFSPACE1*5)))"
                    skip="$((LINE_height1*1+LINE_height2*3))"
-               else # horizontal conky
+               else             # horizontal conky
                    h="$((9*1))"
                    w="$(((CHARACTER_width1*8)))"
                fi
@@ -524,7 +522,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
         echo -n "\${offset -$((CHARACTER_width1*2))}"
                     ;;
                  l*)
-        echo -n "\${voffset $((LINE_height1))}${FONT2}${GOTO} $((INDENT1+HALFSPACE2*5))}"
+        echo -n "\${voffset $((LINE_height1))}${FONT2}${GOTO} $((INDENT1+HALFSPACE2*13))}"
                    ;;
                  *)
         echo -n "\${voffset $((LINE_height1))}${FONT2}${GOTO} $((INDENT1+HALFSPACE2*2))}"
@@ -536,7 +534,8 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
 
                seq="3 4 5 6 1 2"
                [ "${HETEROGENEOUS}" -eq 1 ] \
-               && seq="{1..$(bash_REMATCH_ /usr/bin/lscpu '^CPU\(.*([[:digit:]])')}"
+                                     && seq="{1..$(bash_REMATCH_ /usr/bin/lscpu \
+                                                                 '^CPU\(.*([[:digit:]])')}"
 
         justify_ "${ALIGN}" \
                  "$(for core in $(eval echo "$seq")
@@ -574,23 +573,22 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                   while IFS= read -r line
                   do echo "${line}"
                   done  < /tmp/cpu_stats-"${ALIGN:0:1}" \
-                       | tee >(awk 'NR==4||NR==7{S13+=$13;S2+=$2;S15+=$15;S4+=$4;S16+=$16;S5+=$5}
-                                     END
-                                    {printf "%6.1f\n",(S13-S2+S15-S4)*100/(S13-S2+S15-S4+S16-S5)}') \
-                             >(awk 'NR==2||NR==3{S13+=$13;S2+=$2;S15+=$15;S4+=$4;S16+=$16;S5+=$5}
-                                     END
-                                    {printf "%6.1f\n",(S13-S2+S15-S4)*100/(S13-S2+S15-S4+S16-S5)}') \
-                             >/dev/null
+                     | tee >(awk 'NR==4||NR==7{S13+=$13;S2+=$2;S15+=$15;S4+=$4;S16+=$16;S5+=$5}
+                                   END
+                                  {printf "%6.1f\n",(S13-S2+S15-S4)*100/(S13-S2+S15-S4+S16-S5)}') \
+                           >(awk 'NR==2||NR==3{S13+=$13;S2+=$2;S15+=$15;S4+=$4;S16+=$16;S5+=$5}
+                                   END
+                                  {printf "%6.1f\n",(S13-S2+S15-S4)*100/(S13-S2+S15-S4+S16-S5)}') \
+                           >/dev/null
               }
 
               # frequency current, minimum, & maximum
                 mapfile -t fqz < \
                        <(cat /sys/devices/system/cpu/cpufreq/policy*/scaling_*_freq)
 
-              case "${HETEROGENEOUS}" in
-
-                2) # add usage & frequency for heterogeneous 'big' cores
-                   mapfile -t sides < <(bl_ "${ALIGN}")
+              # add usage & frequency for heterogeneous 'big' cores
+              if [ "${HETEROGENEOUS}" -eq 2 ]
+              then mapfile -t sides < <(bl_ "${ALIGN}")
 
                    # concatenate line so its closer to 80 columns
                      l_string="\${offset 1}${FONT2}"
@@ -605,13 +603,9 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                      l_string+="\${color $(color_ "${sides[0]%.*}" "${COLOR:-100}")}"
                      l_string+="${FONT2}${sides[0]}"
                      l_string+="\${offset 2}${COLOR_units}%\${offset 2}"
-                  ;;
-
-                *) # homogeneous cpu, position current frequency after cpu%
-                    [[ "${ALIGN}" =~ ^r ]] \
-                                  && move_to="$((HALFSPACE1*2))"
-                  ;;
-              esac
+              elif [[ "${ALIGN}" =~ ^r ]] # homogeneous cpu, position frequency after cpu%
+              then move_to="$((HALFSPACE1*2))"
+              fi
 
               # add frequency for only/'LITLE' cores
                 l_string+="${ASTERISK}"
@@ -786,9 +780,9 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
             {if ($1) printf "%s%-10s%7d%6.1f%%%6.1f%%",indent,$11,$1,$7,$8;
              else printf $2}' < \
             <(/opt/bin/top -bn 2 -d 0.01 -c -o +"${SORT}" \
-                           | sed -e  '/top/d' \
-                                    | /usr/bin/tail  -n +11 \
-                                                    | /usr/bin/head -1)
+                         | sed -e  '/top/d' \
+                             | /usr/bin/tail  -n +11 \
+                                           | /usr/bin/head -1)
 
                 is_CASCADING_ "${ALIGN}" \
                 && \
@@ -860,8 +854,8 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
         awk '{printf "%-9s %d %2.1f%% %5.1f Mb %5.1f Mb\n",
                       $1,$2,$3,($4/1024),($5/1024^2)}' < \
             <(/opt/bin/ps  -eo comm,ppid,pmem,rss,vsize \
-                          | /opt/bin/sort  -k 3 -n -r \
-                                          | /usr/bin/head -1)
+                        | /opt/bin/sort  -k 3 -n -r \
+                                      | /usr/bin/head -1)
             fi
       ;;
 
@@ -1002,7 +996,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
               mapfile -t rawbytes < \
                      <(cat "${net_stats}" 2>/dev/null \
                      <(cat  /sys/class/net/"${ACTIVE_iface}"/statistics/{rx,tx}_bytes \
-                           | tee "${net_stats}"))
+                         | tee "${net_stats}"))
 
             rxtx=(  "$(( ( (rawbytes[2] - rawbytes[0]) + ( ${dt:=1} / 2 )  ) / dt ))" )
             rxtx+=( "$((((rawbytes[3]-rawbytes[1])+dt/2)/dt))" )
@@ -1064,7 +1058,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                   do echo "${a} ${b}"
                   done ) 3<"${diskstats:0: -1}" \
                          4< <(bash_REMATCH_ "${file}" "${bash_match}" "${ALIGN}") \
-                   | \
+                     | \
                   awk -v dt="${dt}" -v read="${read}" -v write="${write}" -v mb="${mb}" \
                       '{read_start+=$6;read_end+=$20;write_start+=$10;write_end+=$24;i++}
                         END
@@ -1154,10 +1148,9 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
 
                 { /opt/bin/df   -h "${local_only[@]}" -x tmpfs -x devtmpfs -x squashfs -x iso9660 \
                                 --output=target,avail,used,pcent \
-                              | \
-                                tail  -n +2 \
-                                     | /opt/bin/sort  -k 4 -i \
-                              | \
+                            | tail  -n +2 \
+                                 | /opt/bin/sort  -k 4 -i \
+                            | \
                   while read -r TARGET AVAIL USED PCENT
                   do
                       target="${TARGET##*/}"   # yes those are "'s in a match
@@ -1189,13 +1182,13 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                       fi
                   done ## sorted on percent remaining
                 } \
-                  | /usr/bin/head  -c -1 \
-                                  | tee "${file}"
+                | /usr/bin/head  -c -1 \
+                              | tee "${file}"
                 ## OR sort on total free space
                 #} \
-                  #| /opt/bin/sort  --human-numeric-sort -k "6" \
-                                  #| /usr/bin/head  -c -1 \
-                                                  #| tee "${file}"
+                #| /opt/bin/sort  --human-numeric-sort -k "6" \
+                              #| /usr/bin/head  -c -1 \
+                                            #| tee "${file}"
             else
         printf   "%s" "$(<"${file}")"
             fi
@@ -1247,9 +1240,9 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
               else printf}' < \
             <(renice -5 $BASHPID
               /opt/bin/top  -bn 2 -d 0.01 -c -o +"${SORT}" \
-                           | sed  -e '/top/d' -e "${list_pad}"\
-                                 | /usr/bin/tail  -n +11 \
-                                                 | /usr/bin/head -n "${NPROCS}")
+                         | sed  -e '/top/d' -e "${list_pad}"\
+                             | /usr/bin/tail  -n +11 \
+                                           | /usr/bin/head -n "${NPROCS}")
       ;;
 
     o)                             # OS INFO #
@@ -1277,40 +1270,40 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
         echo    "\${alignc}${UNAME: -17}"
 
               # kernel
-       echo -n  "${GOTO} 0}${COLOR1}${FONT2}"
-       echo     "\${alignc}$(echo "${UNAME:0:37}"|tr '#' d)"
-       echo -n  "\${voffset -2}"
-       echo     "\${alignc}${COLOR1}$(print_RULE_ "${HR}" "117")"
+        echo -n  "${GOTO} 0}${COLOR1}${FONT2}"
+        echo     "\${alignc}$(echo "${UNAME:0:37}"|tr '#' d)"
+        echo -n  "\${voffset -2}"
+        echo     "\${alignc}${COLOR1}$(print_RULE_ "${HR}" "117")"
   ## EOO #########################################################################
 
               # cpu configuration & governor
-       echo -n  "${GOTO} ${INDENT2}}\${voffset ${SPACING}}${COLOR1}${FONT2}"
-       echo -n  "\${alignc}($(bash_REMATCH_ /usr/bin/lscpu '^CPU\(.*([[:digit:]])'))"
-       echo -n  " cores governer: ${COLOR3}"
-       echo     "$(</sys/devices/system/cpu/cpufreq/policy0/scaling_governor)"
-
-              # entropy available
-       echo -n  "${GOTO} ${INDENT1}}${COLOR1}${FONT2}"
-       echo -n  "\${alignc}${COLOR1}Random:"
-       echo -n  "${COLOR2}pool:${COLOR3}"
-       echo -n  "$(</proc/sys/kernel/random/poolsize)"
-       echo -n   "${COLOR2} available:${COLOR3}"
-       echo     "$(</proc/sys/kernel/random/entropy_avail)"
-
-              # roll your own
-       #echo -n "${GOTO} ${INDENT1}}${COLOR1}:"
-       #echo    "\${alignc}Something interesting"
-
-       echo     "\${voffset -3}${COLOR1}\${hr 1}"
-
-        else # outputting horizontally
-       echo -n  "${GOTO} ${INDENT1}}${COLOR1}${FONT1}Gvn:"
-       echo -n  "${COLOR2}"
-       echo -n  "$(</sys/devices/system/cpu/cpufreq/policy0/scaling_governor)"
-       echo -n  "${GOTO} ${SPACING}}${COLOR1}Rnd:"
-       echo -n  "${COLOR3}$(</proc/sys/kernel/random/entropy_avail)"
-       echo -n  "${COLOR2}/${COLOR3}$(</proc/sys/kernel/random/poolsize)"
-        fi
+        echo -n  "${GOTO} ${INDENT2}}\${voffset ${SPACING}}${COLOR1}${FONT2}"
+        echo -n  "\${alignc}($(bash_REMATCH_ /usr/bin/lscpu '^CPU\(.*([[:digit:]])'))"
+        echo -n  " cores governer: ${COLOR3}"
+        echo     "$(</sys/devices/system/cpu/cpufreq/policy0/scaling_governor)"
+ 
+               # entropy available
+        echo -n  "${GOTO} ${INDENT1}}${COLOR1}${FONT2}"
+        echo -n  "\${alignc}${COLOR1}Random:"
+        echo -n  "${COLOR2}pool:${COLOR3}"
+        echo -n  "$(</proc/sys/kernel/random/poolsize)"
+        echo -n   "${COLOR2} available:${COLOR3}"
+        echo     "$(</proc/sys/kernel/random/entropy_avail)"
+ 
+               # roll your own
+        #echo -n "${GOTO} ${INDENT1}}${COLOR1}:"
+        #echo    "\${alignc}Something interesting"
+ 
+        echo     "\${voffset -3}${COLOR1}\${hr 1}"
+ 
+       else # outputting horizontally
+        echo -n  "${GOTO} ${INDENT1}}${COLOR1}${FONT1}Gvn:"
+        echo -n  "${COLOR2}"
+        echo -n  "$(</sys/devices/system/cpu/cpufreq/policy0/scaling_governor)"
+        echo -n  "${GOTO} ${SPACING}}${COLOR1}Rnd:"
+        echo -n  "${COLOR3}$(</proc/sys/kernel/random/entropy_avail)"
+        echo -n  "${COLOR2}/${COLOR3}$(</proc/sys/kernel/random/poolsize)"
+       fi
       ;;
 
     w) # WINDOW WIDTH AND LINE HEIGHT FONT1 & FONT2
