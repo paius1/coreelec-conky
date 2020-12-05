@@ -627,7 +627,7 @@ EOF
 
            if   [[ "${format}" =~ ^longe ]] \
                                || \
-                [ "$((core_per100[0]%.*))" -gt 70 ]
+                [ "$((${core_per100[0]%.*}))" -gt 70 ]
            then # iowait and softirq for case: longe* or high cpu usage
       echo -n "${FONT2}${COLOR1}"
       awk 'NR==1||NR==8{start=($2+$3+$4+$5+$6+$7+$8+$9+$10);
