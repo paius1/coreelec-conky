@@ -177,50 +177,13 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                      INDENT2="$((INDENT2+HALFSPACE1*5))"
   export LC_ALL=C
 
-  function gradient_() { # Pretty colors for data
-    cat <<- ' EOg'
-    ff3200
-    ff3c00
-    ff4600
-    ff5000
-    ff5a00
-    ff6400
-    ff6e00
-    ff7800
-    ff8200
-    ff8c00
-    ff9600
-    ffa000
-    ffaa00
-    ffb400
-    ffbe00
-    ffc800
-    ffd200
-    ffdc00
-    ffe600
-    fff000
-    fffa00
-    fdff00
-    d7ff00
-    b0ff00
-    8aff00
-    65ff00
-    3eff00
-    17ff00
-    00ff10
-    00ff36
-    00ff5c
-    00ff83
-    00ffa8
-    00ffd0
-    00fff4
-    00e4ff
-    00d4ff
- EOg
-    return 0
- }
-  export -f gradient_
-    STEPS="$(wc -l < <(gradient_))"
+  # pretty colors for data
+    gradient=('00d4ff' '00e4ff' '00fff4' '00ffd0' '00ffa8' '00ff83' '00ff5c' '00ff36')
+    gradient+=('00ff10' '17ff00' '3eff00' '65ff00' '8aff00' 'b0ff00' 'd7ff00' 'fdff00')
+    gradient+=('fffa00' 'fff000' 'ffe600' 'ffdc00' 'ffd200' 'ffc800' 'ffbe00' 'ffb400')
+    gradient+=('ffaa00' 'ffa000' 'ff9600' 'ff8c00' 'ff8200' 'ff7800' 'ff6e00' 'ff6400')
+    gradient+=('ff5a00' 'ff5000' 'ff4600' 'ff3c00' 'ff3200')
+    STEPS="${#gradient[@]}"
 
   function color_() { # Return HEX value from gradient_ function
       [ "${2:-0}" -eq 0 ] \
@@ -231,12 +194,15 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
       local maximum="$2"
       local color
 
-      color="$((( current*STEPS + maximum / 2 ) / maximum ))"
-      [ "${color#-}" -ge 1 ] \
-                      || \
-                         color=1
-      /usr/bin/tail  -n "${color#-}" < <(gradient_) \
-                  | /usr/bin/head -1
+      gradient_color="$(( current * STEPS / maximum  ))"
+      [ $gradient_color -gt 36 ] \
+                         && \
+                            gradient_color=36
+      [ $gradient_color -lt 0 ] \
+                         && \
+                            gradient_color=0
+
+      echo "${gradient[${gradient_color}]}"
   return 0
  } 
  export -f color_
@@ -446,7 +412,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
 EOF
  }
   export -f no_IPINFO_
-            
+
           function check_IP_data_() { # Check if ip data file is/recent or create/update
               local ip_file="$1"
               local stale="$2"
@@ -456,12 +422,10 @@ EOF
                               [ "${stale}" -gt "$(delay_ "$(/opt/bin/stat -c %Y "${ip_file}")")" ] \
                                             && \
                                                return 0
-        
+
               curl -sf -m 2 ipinfo.io/"$(/opt/bin/dig +short myip.opendns.com @resolver1.opendns.com)" > "${ip_file}" \
               || \
               no_IPINFO_ > "${ip_file}"
-        #is_CASCADING_ "${ALIGN}" \
-        #&& echo "\${color red}\${alignc}UPDATED IP INFO"
           return 0
          }
          export -f check_IP_data_
@@ -469,9 +433,12 @@ EOF
       # network interfaces
         ACTIVE_iface="$(bash_REMATCH_ "/sbin/ip route show" \
                                       '^d.*[[:space:]]([^[:space:]]+)[[:space:]]$')"
-        ACTIVE_wifi="$(bash_REMATCH_ "/sbin/ip addr" \
-                                     '(wlan[[:digit:]]):[[:blank:]]<BR')"
-      # file for public ip data
+        [[ "${@}" =~ e|q|i ]] \
+                  && \
+                     ACTIVE_wifi="$(bash_REMATCH_ "/sbin/ip addr" \
+                                                  '(wlan[[:digit:]]):[[:blank:]]<BR')"
+
+        # file for public ip data
         IP_data="/tmp/network_DATA"
       # delay for curling ipinfo.co (1,000/day is their max)
         CURL_dt=180
@@ -490,13 +457,14 @@ EOF
                         file=/proc/stat
                         make_ROOM_for_ "${cpu_stats:=/tmp/${file##*/}-${ALIGN}}"
                         bash_match='(^cpu.*)+'
-                        echo -n "" > /tmp/cpu_stats-"${ALIGN:0:1}"
+                        # cpu stats collated for later use
+                          echo -n "" > "${cpu_stats:0:11}"
 
                   ( while  IFS= read -r a <&3 \
                                  && \
                            IFS= read -r b <&4
                     do     echo  "${a} ${b}" \
-                              | tee -a /tmp/cpu_stats-"${ALIGN:0:1}"
+                              | tee -a "${cpu_stats:0:11}"
                     done ) \
                            3<"${cpu_stats:0: -1}" \
                            4< <(bash_REMATCH_ "${file}" "${bash_match}" "${ALIGN}") \
@@ -591,11 +559,11 @@ EOF
               function bl_() {
                   local align="$1"
                   local cpu_stats
-                        cpu_stats="/tmp/stat-${ALIGN}"
+                        cpu_stats=/tmp/stat-"${ALIGN:0:1}"
 
                   while IFS= read -r line
                   do echo "${line}"
-                  done  < /tmp/cpu_stats-"${ALIGN:0:1}" \
+                  done  < "${cpu_stats}" \
                      | tee >(awk 'NR==4||NR==7{S13+=$13;S2+=$2;S15+=$15;S4+=$4;S16+=$16;S5+=$5}
                                    END
                                   {printf "%6.1f\n",(S13-S2+S15-S4)*100/(S13-S2+S15-S4+S16-S5)}') \
@@ -672,7 +640,7 @@ EOF
             ;;
         esac
 
-            if   [[ "${FORMAT}" =~ ^longe ]] \
+            if   [[ "${FORMAT}" =~ est ]] \
                                 || \
                  [ "$((${core_per100[0]%.*}))" -gt 70 ]
             then # iowait and softirq for case: longe* or high cpu usage
@@ -685,7 +653,7 @@ EOF
              {printf "\${alignc}iowait: %6.4f%%  softirq: %6.4f%%",
                       (iowEnd-iowStart)*100/(end-start),
                       (sirqEND-sirqStart)*100/(end-start);}' \
-             /tmp/cpu_stats-"${ALIGN:0:1}"
+             /tmp/stat-"${ALIGN:0:1}"
 
                 is_CASCADING_ "${ALIGN}" \
                 && \
@@ -1017,38 +985,45 @@ EOF
                 printf "%4d%s%.1s%s" "$b" "." "${d}" "${u}${S[${s}]}${p_u}"
             return 0; }
 
-            # variables for stats
+            # variables for rx/tx stats
               net_stats="/tmp/net_stats-${ALIGN:0:1}"
+            # when was last reading based on file creation
               then="$(created_ "${net_stats}")"
+            # how long ago was that
               dt="$(delay_ "${then}")"
+            # if created_ returned error then net_stats !exist
               [ "${then}" -eq 1 ] \
                            && \
-                              echo -n "" > "${net_stats}"
+                              touch "${net_stats}"
 
             # read network rx,tx stats into array
-              mapfile -t rawbytes < \
-                     <(cat "${net_stats}" 2>/dev/null \
+              mapfile -t rawbytes \
+                     < "${net_stats}" 2>/dev/null
+              mapfile -t -O "${#rawbytes[@]}" rawbytes < \
                      <(cat  /sys/class/net/"${ACTIVE_iface}"/statistics/{rx,tx}_bytes \
-                         | tee "${net_stats}"))
+                         | tee "${net_stats}")
 
-            rxtx=(  "$(( ( (rawbytes[2] - rawbytes[0]) + ( ${dt:=1} / 2 )  ) / ${dt:=1} ))" )
-            rxtx+=( "$((((rawbytes[3]-rawbytes[1])+dt/2)/dt))" )
+            if [ "${#rawbytes[@]}" -ne 4 ]
+            then rxtx=( '1' '1' )
+            else # have enough data to work with
+                rxtx=( "$(( ( (rawbytes[2] - rawbytes[0]) + ( ${dt:=1} / 2 )  ) / ${dt:=1} ))" )
+                rxtx+=( "$((((rawbytes[3]-rawbytes[1])+dt/2)/dt))" )
+            fi
 
             # to set max upper speed
               speed='/tmp/net-speed'
             # adjust scale for up speed # this returns error on no file, oh well
               hi_up="$(< "${speed}_up")" \
                   || touch "${speed}_up"
-              [ "${rxtx[1]:=1000}" -gt "${hi_up:=1000}" ] \
+              [ "${rxtx[1]}" -gt "${hi_up:=0}" ] \
                                     && \
                                        echo "${rxtx[1]}" > "${speed}_up"
             # adjust scale for down speed
               hi_dn="$(< "${speed}_down")" \
                   || touch "${speed}_down"
-              [ "${rxtx[0]:=1000}" -gt "${hi_dn:=1000}" ] \
+              [ "${rxtx[0]}" -gt "${hi_dn:=0}" ] \
                                     && \
                                        echo "${rxtx[0]}" > "${speed}_down"
-hi_up=2062582; hi_dn=6200000
             # sublabel for conky (left|right|center) || horiz
               sublabel=( 'Up:' 'Dn:' )
               is_HORIZ_ "${ALIGN}" \
@@ -1084,7 +1059,6 @@ hi_up=2062582; hi_dn=6200000
         echo -n "\${offset -7}"
 
             function diskstats_() {
-                #renice -19 $BASHPID
                 local align="$1"
                 local file diskstats match
                       file=/proc/diskstats
@@ -1094,9 +1068,9 @@ hi_up=2062582; hi_dn=6200000
                       dt="$(delay_ "${then}")"
                       [ "${then}" -eq 1 ] \
                                    && \
-                                      echo -n "" > "${diskstats}"
+                                      touch "${diskstats}"
 
-                ( renice -19
+                ( renice -10
                   while IFS= read -r a <&3 \
                               && \
                         IFS= read -r b <&4
@@ -1120,28 +1094,24 @@ hi_up=2062582; hi_dn=6200000
 
             # upper speed read/write
               speed='/tmp/disk'
-              is_READABLE_ "${speed}_read" \
-                           || \
-                              echo '1000' > "${speed}_read"
-              is_READABLE_ "${speed}_write" \
-                           || \
-                              echo '1000' > "${speed}_write"
-
-              hi_read="$(<  "${speed}_read")"
-              hi_write="$(< "${speed}_write")"
+            # get previous highs # this returns error on no file, oh well
+              hi_read="$(< "${speed}_read")" \
+                      || touch "${speed}_read" # file !exist, create
+              hi_write="$(< "${speed}_write")" \
+                      || touch "${speed}_write"
 
             # adjust scale for read/write speed
-              [ "${diskio[2]:=1}" -gt "${hi_read:=100}" ] \
+            # this sets ${diskio[@]} and $hi_read/write if unset
+              [ "${diskio[2]:=1}" -gt "${hi_read:=0}" ] \
                                    && \
                                       echo "${diskio[2]}" > "${speed}_read"
-                                 
-              [ "${diskio[3]:=1}" -gt "${hi_write:=100}" ] \
+              [ "${diskio[3]:=1}" -gt "${hi_write:=1}" ] \
                                    && \
                                       echo "${diskio[3]}" > "${speed}_write"
 
             # color disk io
-              colors=(  "$(color_ "${diskio[2]}" "$((${hi_read:-1} *${COLOR:-1}/4))")" )
-              colors+=( "$(color_ "${diskio[3]}" "$((${hi_write:-1}*${COLOR:-1}/4))")" )
+              diskio_color=(  "$(color_ "${diskio[2]}" "$((${hi_read:-1} *${COLOR:-1}/4))")" )
+              diskio_color+=( "$(color_ "${diskio[3]}" "$((${hi_write:-1}*${COLOR:-1}/4+1))")" )
 
             # variables for conky
               offset=0
@@ -1164,7 +1134,7 @@ hi_up=2062582; hi_dn=6200000
         echo -n "\${offset $((HALFSPACE2*6))}"
 
         justify_ "${ALIGN}" \
-                 "${read}\${color ${colors[0]}}${diskio[0]}${mb}${write}\${color ${colors[1]}}${diskio[1]}${mb}" \
+                 "${read}\${color ${diskio_color[0]}}${diskio[0]}${mb}${write}\${color ${diskio_color[1]}}${diskio[1]}${mb}" \
                  "$((LINE_length1-INDENT2/CHARACTER_width1))"
       ;;
 
@@ -1179,7 +1149,7 @@ hi_up=2062582; hi_dn=6200000
         echo -n "\${offset 5}"
             fi
 
-            file="/tmp/filesystem-${ALIGN:0:1}"
+            file="/tmp/filesystems-${ALIGN:0:1}"
             then="$(created_ "${file}")"
 
             # to shorten the list especially for horizontal format
@@ -1193,7 +1163,7 @@ hi_up=2062582; hi_dn=6200000
             then # read current data and tee to file
 
                 # (width of line in conky 'x') - (location & length of FREE) + space
-                  width="$((LINE_length1*CHARACTER_width1-(HALFSPACE1*41)))"
+                  width="$((LINE_length1*CHARACTER_width1-(HALFSPACE1*42)))"
                   [[ "${ALIGN}" =~ ^l ]] \
                                 && \
                                    width="$((width-HALFSPACE1*5))"
@@ -1228,11 +1198,11 @@ hi_up=2062582; hi_dn=6200000
         echo -n  "${target:0:15}"
         echo -n  "${GOTO} ${INDENT2}}${COLOR2}"
         echo -n  "$(printf %14s "${AVAIL}")"
-        echo -n  "${GOTO} $((INDENT2+CHARACTER_width1*15))}"
-        echo -n  "\${color $(color_ "$((percent))" "${COLOR:-100}")}"
+        echo -n  "${GOTO} $((INDENT2+HALFSPACE1*26))}"
+        echo -n  "\${color $(color_ "${percent%.*}" "${COLOR:-100}")}"
         echo -n  "\${execbar ${BAR_height},${width} echo \"${percent%.*}\"}"
-        echo -n  "${GOTO} $((INDENT2+HALFSPACE1*29))}"
-        echo -n "\${offset $((width*${percent%.*}/115-HALFSPACE1*5))}"
+        echo -n  "${GOTO} $((INDENT2+HALFSPACE1*29+1))}"
+        echo -n "\${offset $((width*${percent%.*}/125-HALFSPACE1*5))}"
         echo -n  "\${color $(color_ $((100-${percent%.*})) "$((99*${COLOR:-1}+1))")}$(printf "%4s" "${USED}")"
         echo
                       fi
@@ -1294,7 +1264,7 @@ hi_up=2062582; hi_dn=6200000
                  printf "%s%-14.14s%7d%s%6.1f%%%s%5.1f%%\n",
                          indent,$11,$1,cpu,$7,mem,$8;
               else printf}' < \
-            <(renice -19 $BASHPID
+            <(renice -10 $BASHPID
               /opt/bin/top  -bn 2 -d 0.01 -c -o +"${SORT}" \
                          | sed  -e '/top/d' -e "${list_pad}"\
                              | /usr/bin/tail  -n +11 \
@@ -1309,7 +1279,8 @@ hi_up=2062582; hi_dn=6200000
         # Heading
         echo -n "${GOTO} 0}${COLOR2}${FONT1}"
 
-        echo    "\${alignc}$(bash_REMATCH_ /etc/os-release '^PR.*"(.*+)"') "
+        echo    "\${alignc}$(bash_REMATCH_ /etc/issue \
+                                           '^(C.*[[:blank:]].*[[:blank:]].*[[:blank:]])')"
 
               # hardware
         echo -n "${GOTO} 0}${FONT1}"
@@ -1429,7 +1400,7 @@ is_CASCADING_ "${ALIGN}" \
 label="\${offset 10}Cpu usage avg\${color #C2F3F6}\${offset 10}"; }
 #
 # cpu usage avg & current from /proc/$$/stat
-awk -v avg="${avg_cpu}" -v ticks="${clock_ticks}" -v uptime="${uptime}" -v ncores="${NCORES}" -v label="${label}" '{total=$14+$15; start_time=$22;}END
+awk -v avg="${avg_cpu}" -v ticks="${clock_ticks}" -v uptime="${uptime}" -v ncores="${NCORES}" -v label="${label}" '{total=$14+$15+$16+$17; start_time=$22;}END
 {printf "%s%5.1f\${offset 4}\${color #06939B}%%\${offset 5}\${color #06939B} now\${color #C2F3F6} %4.1f \${color #06939B}%%\n",
 label,avg, ( ( 100 * ( total / ticks ) / ( uptime - ( start_time / ticks))) );}'  "/proc/$$/stat" \
 | tee -a "${TIME_log}" \
