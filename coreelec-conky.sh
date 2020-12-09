@@ -1,16 +1,17 @@
 #!/opt/bin/bash
-#   v 0.9.8
+#   v 0.9.9.1
 #  Outputs CoreELEC OS stats in conky printable format
 #  uses entware's bash, bind-dig, coreutils-df, coreutils-sort,
 #                 coreutils-stat, procps-ng-top
 #     
-#   Usage: SCRIPTNAME -[ocltumeqirxsdfp]
+#   Usage: SCRIPTNAME -[ocltumeqirxsdfpn]
 #          [o] os info <ng>   [c] cpu usage         [l] load average
 #          [t] temp cpu & ram [u] uptime            [m] memory
 #          [e] network essid  [q] wireless quality  [i] lan address
 #          [r] network region [x] public ip         [s] network up/down speed
 #          [d] disk i/o       [f] mounted filesystems, free space, & graph of usage
 #          [p] processes command pid %cpu %mem (sorted w/ SORT=%CPU|%MEM)
+#          [n] now playing
 #
 #######################
 # Ꜿ plgroves gmail nov 2020
@@ -49,10 +50,10 @@
 #    
 #   prints output in order of options <fewer options faster time / less load>
 #   
-#   run: time ssh Hostname /path/to/coreelec-conky.sh -[ocltumeqirxsdfp] >/dev/null
+#   run: time ssh Hostname /path/to/coreelec-conky.sh -[ocltumeqirxsdfpn] >/dev/null
 #   to determine 'interval' & add the following to your conkyrc:
 #   
-#   ${texecpi 'interval' ssh Hostname /path/to/coreelec-conky.sh -[ocltumeqirxsdfp]}
+#   ${texecpi 'interval' ssh Hostname /path/to/coreelec-conky.sh -[ocltumeqirxsdfpn]}
 #   
 #   add 'UseDNS no' to /storage/.cache/services/sshd.conf on CoreELEC
 #   
@@ -61,7 +62,7 @@
 #     pass [long|longer|longest] for frequency|per core|graph
 #   
 #   to remove all nonindented (debug) lines after this heading
-#     sed -i -e '69,$ { /^[^[:blank:]]/d }' /opt/bin/coreelec-conky.sh 
+#     sed -i -e '70,$ { /^[^[:blank:]]/d }' /opt/bin/coreelec-conky.sh 
 #   
 #   http://kfirlavi.herokuapp.com/blog/2012/11/14/defensive-bash-programming/
 #   
@@ -120,7 +121,7 @@ tss=$(/usr/bin/date +%s%N)
     GOTO="\${goto "
     VOFFSET="\${voffset "
   # left hr since conky can't define hr width
-    while read -r num; do HR+="―"; done < <(seq "$((LINE_length2))")
+    while read -r num; do HR+="―"; done < <(seq "${LINE_length2}")
   # delay for refreshing disk usage to save time
     FS_dt=17
   # the @ character prints below the line
@@ -136,7 +137,7 @@ tss=$(/usr/bin/date +%s%N)
     if [[ "${@: -1}" == +(le*|r*|c*|h*) ]]; then ALIGN="${@: -1}"; set -- "${@:1:$(($#-1))}"; fi
     if [[ "${@: -1}" == +(lo*|s*) ]]; then FORMAT="${@: -1}"; set -- "${@:1:$(($#-1))}"; fi
 #
-# add options in conkyrc to skip these defaults
+# pass '-' to use these defaults or add options in conkyrc to skip
 #
 if [ ${#1} -eq 1 ]
 then # add options after %/
@@ -185,16 +186,14 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
     gradient+=('ff5a00' 'ff5000' 'ff4600' 'ff3c00' 'ff3200')
     STEPS="${#gradient[@]}"
 
-  function color_() { # Return HEX value from gradient_ function
+  function color_() { # Return HEX value from gradient_ array
       [ "${2:-0}" -eq 0 ] \
                    && \
-                      { bash_REMATCH_ "${COLOR3}" ' [#]?([[:alnum:]]+)[[:blank:]]?}$';
+                      { bash_REMATCH_ "${COLOR3}" '[[:blank:]][#]?([[:alnum:]]+)[[:blank:]]?}$';
                         return 1; }
-      local current="$1"
-      local maximum="$2"
       local color
 
-      gradient_color="$(( current * STEPS / maximum  ))"
+      gradient_color="$(( $1 * STEPS / $2  ))"
       [ $gradient_color -gt 36 ] \
                          && \
                             gradient_color=36
@@ -207,12 +206,12 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
  } 
  export -f color_
  
-  function print_RULE_() {
+  function print_RULE_() { # print string of $1, $2 characters long ( unicode assumes length 3)
       local hr="$1"
       local length="$2"
-      until ((length%3==0))
-      do ((length++))
-      done
+      [[ "${hr}" = *[![:ascii:]]* ]] \
+                 && \
+                    ((length*=3))
 
       echo -n "${hr:0:${length}}"
   return 0
@@ -220,60 +219,49 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
  export -f print_RULE_
 
   function is_HORIZ_() {
-      local align="$1"
-      [[ "${align}" =~ ^h ]]
+      [[ "${1}" =~ ^h ]]
  }
  export -f is_HORIZ_
 
   function is_CASCADING_() {
-      local align="$1"
-      [[ ! "${align}" =~ ^h ]]
+      [[ ! "${1}" =~ ^h ]]
  }
  export -f is_CASCADING_
 
   function heading_() {
-      local label="$1"
-      local align="$2"
-      local conky_object="$3"
-      local position="$4"
-      local color="$5"
-      local font="$6"
-      local spacing="$7"
 
-      echo -n  "${conky_object} ${position}}${color}${font}"
-          is_CASCADING_ "${align}" \
+      echo -n  "${3} ${4}}${5}${6}"
+          is_CASCADING_ "${2}" \
           && \
-      echo -n "\${voffset ${spacing}}${label}"
+      echo -n "\${voffset ${7}}${1}"
   return 0      
  }
  export -f heading_
 
   function justify_() { # ALIGN string on line_length
-      local align="$1"  # print newline if !horizontal
       local string="$2"
-      local line_length="$3"
-      local length_text padding newline
-      
-      case "${align}" in
+      local string length_text padding newline
+
+            # remove any leading & trailing whitespaces
+              string="$(sed -e 's/}[ \t]*/}/' -e 's/^[[:space:]]*//' \
+                            -e 's/[[:space:]]*$//' <<< "${string}")"
+
+      case "${1}" in
 
           r*|c*)
-                 # remove any leading & trailing whitespaces
-                   string="$(sed -e 's/}[ \t]*/}/' -e 's/^[[:space:]]*//' \
-                                 -e 's/[[:space:]]*$//' <<< "${string}")"
-
                  # length of string stripped of conky formating
                    length_text="$(("$(sed  -e "s/[\${][^}]*[}]//g" <<< "${string}" \
                                         | wc -c)"-1))"
 
                  # check length of text v length of line
-                   [ "${length_text}" -gt "${line_length}" ] \
+                   [ "${length_text}" -gt "${3}" ] \
                                        && \
-                                          { echo "lgth: ${line_length} < stng: ${length_text}";
+                                          { echo "lgth: ${3} < stng: ${length_text}";
                                             return 2; }
 
                  # spaces to pad string
-                   padding="$((line_length-length_text))"
-                   [[ "${align}" =~ ^c ]] \
+                   padding="$(($3-length_text))"
+                   [[ "${1}" =~ ^c ]] \
                                  && \
                                     padding="$(((padding+2/2)/2))"
 
@@ -282,13 +270,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                    newline=$'\n'
             ;&
           *)     # printf ${padding}${string}${newline}
-                 # remove any leading & trailing whitespaces for horizontal
-                   is_HORIZ_ "${align}" \
-                             && \
-                                string="$(sed -e 's/^[ \t]*//' -e 's/}[ \t]*/}/' \
-                                              -e 's/[[:space:]]*$//' <<< "${string}")"
-
-                 printf "%$((padding+${#string}))s" "${string}${newline}"
+      printf "%$((padding+${#string}))s" "${string}${newline}"
             ;;
 
         esac
@@ -297,29 +279,32 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
  export -f justify_
 
   function bash_REMATCH_() { # Return specific data in matching line of
-      local output           # command output, file, or string
-      local source="$1"
-      local pattern="$2"
+      local output match     # command output, file, or string
       is_SET_ "$3" \
               && \
-                 output="/tmp/${source##*/}-${3}"
+                 output="/tmp/${1##*/}-${3}"
 
-      if _is_EXECUTABLE "${source%% *}"
+      if is_EXECUTABLE_ "${1%% *}"
       then while IFS= read -r line
-           do if [[ "${line}" =~ ${pattern} ]]
+           do if [[ "${line}" =~ ${2} ]]
               then echo  "${BASH_REMATCH[1]}" \
                       | tee -a "${output:-/dev/null}"
               fi
-          done < <(${source})
-      elif is_READABLE_ "${source}"
+          done < <(${1})
+      elif is_FUNCTION_ "${1}"
+      then [[ "${1}" =~ ${2} ]]
+           for ((i=1;i<"${#BASH_REMATCH[@]}";i++))
+           do  echo "${BASH_REMATCH[${i}]}"
+           done
+      elif is_READABLE_ "${1}"
       then echo -n "" > "${output:-/dev/null}"
            while IFS= read -r line
-           do if [[ "${line}" =~ ${pattern} ]]
+           do if [[ "${line}" =~ ${2} ]]
               then echo  "${BASH_REMATCH[1]}" \
                       | tee -a "${output:-/dev/null}"
               fi
-           done < "${source}"
-      else [[ "${source}" =~ ${pattern} ]]
+           done < "${1}"
+      else [[ "${1}" =~ ${2} ]]
            echo "${BASH_REMATCH[1]}"
       fi
   return 0
@@ -327,9 +312,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
  export -f bash_REMATCH_
 
   function created_() {
-      local file="$1"
-
-      /opt/bin/stat -c %Y "${file}" 2>/dev/null \
+      /opt/bin/stat -c %Y "${1}" 2>/dev/null \
       || \
       echo $?
       return 0
@@ -337,56 +320,53 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
  export -f created_
 
   function delay_() {
-      local then="$1"
-      local file="$2"
       local now
       now="$(/usr/bin/date  +%s \
-                         | tee "${file:-/dev/null}")"
+                         | tee "${2:-/dev/null}")"
 
-      echo -n "$((now-${then:-${CURL_dt}}))"
+      echo -n "$((now-${1:-${CURL_dt}}))"
   return 0
  }
  export -f delay_
 
   function make_ROOM_for_() {
-      local file="$1"
-
-      mv "${file}" "${file:0: -1}" 2>/dev/null \
+      mv "${1}" "${1:0: -1}" 2>/dev/null \
       || \
-      touch "${file:0: -1}"
+      touch "${1:0: -1}"
   return 0
  }
  export -f make_ROOM_for_
 
   function is_EMPTY_() {
-      local variable="$1"
-      [ -z "${variable}" ]
+      [ -z "${1}" ]
  }
  export -f is_EMPTY_
 
   function is_SET_() {
-      local variable="$1"
-      [ -n "${variable}" ]
+      [ -n "${1}" ]
  }
  export -f is_SET_
 
   function is_NOT_file_() {
-      local file="$1"
-      [ ! -f "${file}" ]
+      [ ! -f "${1}" ]
  }
  export -f is_NOT_file_
 
   function is_READABLE_() {
-      local file="$1"
-      [ -r "${file}" ]
+      [ -r "${1}" ]
  }
  export -f is_READABLE_
 
-  function _is_EXECUTABLE() {
-      local file="$1"
-      [ -x "${file}" ]
+  function is_EXECUTABLE_() {
+      #[ -x "${1}" ] # this requires full path
+      command -v "${1}" >/dev/null
  }
- export -f _is_EXECUTABLE
+ export -f is_EXECUTABLE_
+
+  function is_FUNCTION_() {
+       declare -f -F "${1}" > /dev/null
+ }
+ export -f is_FUNCTION_
 
   # horizontal conky
     if is_HORIZ_ "${ALIGN}"
@@ -444,7 +424,7 @@ EOF
         CURL_dt=180
   fi
 
-  while getopts "ocltmueqxirspfdwvh" opt
+  while getopts "ocltmueqxirspfdnwvh" opt
   do
   case "${opt}" in
 
@@ -470,7 +450,7 @@ EOF
                            4< <(bash_REMATCH_ "${file}" "${bash_match}" "${ALIGN}") \
                        | \
                     awk '{if (NR != "")
-                          printf "%6.1f\n",
+                          printf "%5.1f\n",
                                   ($13-$2+$15-$4)*100/($13-$2+$15-$4+$16-$5);
                           else print 0;}'
               }
@@ -513,8 +493,11 @@ EOF
                  l*)
         echo -n "\${voffset $((LINE_height1))}${FONT2}${GOTO} $((INDENT1+HALFSPACE2*13))}"
                    ;;
+                 c*)
+        echo -n "\${voffset $((LINE_height1))}${FONT2}${GOTO} $((INDENT1+HALFSPACE2*12))}"
+                   ;;
                  *)
-        echo -n "\${voffset $((LINE_height1))}${FONT2}${GOTO} $((INDENT1+HALFSPACE2*2))}"
+        echo -n "\${voffset $((LINE_height1))}${FONT2}${GOTO} $((INDENT1+HALFSPACE2*7))}"
                    ;;
                esac
 
@@ -566,10 +549,10 @@ EOF
                   done  < "${cpu_stats}" \
                      | tee >(awk 'NR==4||NR==7{S13+=$13;S2+=$2;S15+=$15;S4+=$4;S16+=$16;S5+=$5}
                                    END
-                                  {printf "%6.1f\n",(S13-S2+S15-S4)*100/(S13-S2+S15-S4+S16-S5)}') \
+                                  {printf "%5.1f\n",(S13-S2+S15-S4)*100/(S13-S2+S15-S4+S16-S5)}') \
                            >(awk 'NR==2||NR==3{S13+=$13;S2+=$2;S15+=$15;S4+=$4;S16+=$16;S5+=$5}
                                    END
-                                  {printf "%6.1f\n",(S13-S2+S15-S4)*100/(S13-S2+S15-S4+S16-S5)}') \
+                                  {printf "%5.1f\n",(S13-S2+S15-S4)*100/(S13-S2+S15-S4+S16-S5)}') \
                            >/dev/null
               }
 
@@ -605,7 +588,7 @@ EOF
                 l_string+="$(human_FREQUENCY_ "${fqz[0]}")"
 
               case "${ALIGN}" in # make room for a long line
-                l*)    move_to="$((INDENT1+CHARACTER_width1*4))";;
+                l*)    move_to="$((INDENT1+CHARACTER_width1*6))";;
                 r*) : "${move_to:=$((HALFSPACE1*7))}";;
                 c*) : "${move_to:=$((HALFSPACE1*11))}";;
                 *)     move_to=1;;
@@ -618,7 +601,7 @@ EOF
               case "${ALIGN}" in
                 c*) : "${move_to:=$((HALFSPACE1*9))}" ;;
                 r*) : "${move_to:=0}" ;;
-                l*) : "${move_to:=$((INDENT2*1-CHARACTER_width1))}" ;;
+                l*) : "${move_to:=$((INDENT2*1-CHARACTER_width1*0))}" ;;
                 *)  : "${move_to:=$((CHARACTER_width1*2))}"  ;;
               esac
 
@@ -860,7 +843,7 @@ EOF
         then
         heading_ "ESSID:" "${ALIGN}" "${GOTO}" "${INDENT1}" "${COLOR1}" "${FONT1}" "${SPACING}"
 
-            line="$(bash_REMATCH_ 'connmanctl services' '^\*AR[[:blank:]]([^[:blank:]]+).*w') "
+            line="$(bash_REMATCH_ '/usr/bin/connmanctl services' '^\*AR[[:blank:]]([^[:blank:]]+).*w') "
             # TODO need to fiqure out bitrate speed w/o iwconfig see below
               line+="${COLOR2}"
               line+="$(/usr/bin/awk -v wlan="${ACTIVE_wifi}" \
@@ -1142,7 +1125,7 @@ EOF
         heading_ "" "${ALIGN}" "${GOTO}" '0' "${COLOR1}" "${FONT1}" "${SPACING}"
             if is_CASCADING_ "${ALIGN}"
             then
-        echo -n  "$(print_RULE_ "${HR}" "$(((LINE_length1/2-3)*3))")"
+        print_RULE_ "${HR}" "$((LINE_length1/2-4))"
         echo -n  "STORAGE"
         echo -n  "\${voffset -1}\${hr}\${voffset $((LINE_height1+4))}"
             else
@@ -1228,10 +1211,9 @@ EOF
         if is_CASCADING_ "${ALIGN}"
         then
         heading_ "" "${ALIGN}" "${GOTO}" '0' "${COLOR1}" "${FONT1}" "$((SPACING+2))"
-        echo -n  "$(print_RULE_ "${HR}" "$(((LINE_length1/2-7)*3))")"
-        echo -n  "STORAGE"
-        echo -n  "$(print_RULE_ "${HR}" "3")"
-
+        echo -n  "$(print_RULE_ "${HR}" "$((LINE_length1/2-7))")"
+        echo -n  "PROCESSES"
+        print_RULE_ "${HR}" 1
         echo -n  "[$(bash_REMATCH_ '/proc/stat' 'running ([[:digit:]]+)')]"
         echo     "\${voffset -1}\${hr}\${voffset $((LINE_height1/3))}"
 
@@ -1271,6 +1253,103 @@ EOF
                                            | /usr/bin/head -n "${NPROCS}")
       ;;
 
+    n)
+          # credentials for local kodi
+            kodi_pass=
+            kodi_user=kodi
+            kodi_host=localhost
+            kodi_port=8080
+          
+            function kodi_REQ_ {
+                /opt/bin/curl --silent -X POST --header "Content-Type: application/json" -d "$1" http://$kodi_user:$kodi_pass@$kodi_host:$kodi_port/jsonrpc
+                }
+ 
+            function parse_JSON_ {
+                local key=$1
+                awk -F"[,:}]" '{for(i=1;i<=NF;i++){if($i~/'"${key}"'\042/){print $(i+1)}}}' | tr -d '"'
+                }
+            function player_INFO_() {
+                local match
+                      match='^.*playerid":([[:digit:]]).*type":"([[:alpha:]]+)'
+                
+                [[ $(kodi_REQ_ '{ "jsonrpc":"2.0","method":"Player.GetActivePlayers","id":"99"}') \
+                               =~ \
+                               ${match} ]] \
+                                           && \
+                                               PLAYERID="${BASH_REMATCH[1]}"
+                                                #PLAYERTYPE="${BASH_REMATCH[2]}"; }
+                }
+
+            function times_() {
+                parse_JSON_ '"hours|"minutes|"seconds' < \
+                     <( kodi_REQ_ '{"jsonrpc": "2.0", "method": "Player.GetProperties", "params": { "playerid": '"$PLAYERID"', "properties": ["time","totaltime"] }, "id": 1}') \
+                                | tr  '\n' ' ' \
+                                   | awk '{print $1*3600+$2*60+$3, $4*3600+$5*60+$6}'
+                }
+
+       player_INFO_
+       if ((PLAYERID))
+       then
+           times=($(times_))
+           finish="$( /opt/bin/date -d "+$((times[1]-times[0])) secs" +'%I:%M%P')"
+
+        heading_ "" "${ALIGN}" "${GOTO}" "${INDENT1}" "${COLOR1}" "${FONT1}" "$((SPACING))"
+        print_RULE_ "${HR}" "$((LINE_length1/2-12))"
+        echo -n  " Now Playing "
+
+
+           # remove ',' & ':' from items not part of json
+             nowplaying=$(sed -e 's/,*\([^"]\)/\1/g' -e 's/:*\([^"]\)/\1/g' < \
+                          <(kodi_REQ_ \
+                            '{"jsonrpc": "2.0", "method": "Player.GetItem", "params": { "properties": [ "showtitle", "streamdetails","title"], "playerid": '"$PLAYERID"' }, "id": "VideoGetItem"}'))
+           type=$( parse_JSON_ type <<< "${nowplaying}")
+
+        echo -n  "${FONT2}til\${offset ${HALFSPACE1}}${finish} "
+        print_RULE_ "${HR}" "$((LINE_length1/2-12))"
+        echo
+        #echo     "\${voffset -1}\${hr}\${voffset $((LINE_height1/3))}"
+
+           case "${type}" in
+             e*)
+                 series=$(parse_JSON_ showtitle <<< "${nowplaying}")
+                 episode_details=($( parse_JSON_ 'episode|label|season' < \
+                                          <(kodi_REQ_ \
+                                            '{"jsonrpc": "2.0", "method": "Player.GetItem", "params": { "properties": [ "episode", "season"], "playerid": '"$PLAYERID"' }, "id": "VideoGetItem"}')))
+                 episode="${episode_details[1]}"
+                 season="${episode_details[-1]}"
+                 unset 'episode_details[0]' 'episode_details[-1]'
+                 title="${episode_details[*]}"
+                 main_line="${title:0:$((LINE_length1-INDENT1*2/CHARACTER_width1))}" \
+                 series_line="$(printf "%.$((LINE_length1-INDENT1/CHARACTER_width1))s S%02d E%02d" "${series}" "${season}" "${episode}")"
+               ;;
+             m*)
+                 movie_details=$(kodi_REQ_ '{"jsonrpc": "2.0", "method": "Player.GetItem", "params": { "properties": [ "title","runtime"], "playerid": '"$PLAYERID"' }, "id": "VideoGetItem"}')
+                 movie_title=$(bash_REMATCH_ "${movie_details}" 'title":"(.*)","type')
+                 main_line="${movie_title:0:$((LINE_length2-INDENT2/CHARACTER_width2))}"
+                ;;
+             c*)
+            echo is channel
+                ;;
+             u*)
+                 video=$( bash_REMATCH_ "$nowplaying" 'label":"(.*)","showtitle')
+                 main_line="${video:0:$((LINE_length1-INDENT1*4/CHARACTER_width1))}" \
+               ;;
+           esac  
+
+        echo -n  "${GOTO} $((INDENT1+0))}${COLOR3}${FONT1}"
+        justify_ "center" \
+                 "${main_line}" \
+                 "$((LINE_length1-INDENT1/CHARACTER_width1))"
+            if is_SET_ "${series_line}"
+            then echo -n  "${GOTO} $((INDENT1+CHARACTER_width1*0))}${COLOR2}${FONT2}"
+        justify_ "center" \
+                 "${series_line}" \
+                 "$((LINE_length2-INDENT1/CHARACTER_width2))"
+            fi
+        echo -n "${VOFFSET} $((SPACING+1))}"
+       fi     
+        ;;
+
     o)                             # OS INFO #
        if is_CASCADING_ "${ALIGN}"
        then # print lots of superfluose data over 1/10 of a second
@@ -1300,7 +1379,9 @@ EOF
         echo -n  "${GOTO} 0}${COLOR1}${FONT2}"
         echo     "\${alignc}$(echo "${UNAME:0:37}"|tr '#' d)"
         echo -n  "\${voffset -2}"
-        echo     "\${alignc}${COLOR1}$(print_RULE_ "${HR}" "117")"
+        echo -n  "\${alignc}${COLOR1}"
+        print_RULE_ "${HR}" "39"
+        echo
   ## EOO #########################################################################
 
               # cpu configuration & governor
@@ -1378,8 +1459,8 @@ EOF
 v) # FOR BENCHMARKING see heading to delete using sed
 if is_CASCADING_ "${ALIGN}"; then
 echo -n "\${voffset $((SPACING*1+3))}${COLOR1}${FONT1}"
-echo -n  "$(print_RULE_ "${HR}" "$(((LINE_length1/2-6)*3))")Runtime Stats\${voffset -1}\${hr}"
-echo
+print_RULE_ "${HR}" "$((LINE_length1/2-6))"
+echo "Runtime Stats\${voffset -1}\${hr}"
 else
 echo -n "${GOTO} $((INDENT1+15))}${COLOR1}${FONT1}"
 fi
@@ -1415,15 +1496,16 @@ label="\${offset 10}Runtime\${offset 4}\${color #C2F3F6}\${offset 55}"; }
 # runtime avg & current from TIME_log closer to time from remote
 awk -v label="${label}" -v runtime="$((($(/usr/bin/date +%s%N)-tss)/1000000))" '/MONITOR/ {sum+=$3; count++}END{if (count > 0)printf "%s%5.2f\${color #06939B}s\${offset 5}\${color #C2F3F6}%7.2f\${color #06939B}s\n",label,((sum / count)/1000),(runtime/1000);}' "${TIME_log}"
 ;;
-    h|\?|*)
+    h|*)
         _Usage "$@"
      ;;
 
   esac
   done
                  is_CASCADING_ "${ALIGN}" \
-                 && \
-          echo   "\${alignc}${COLOR1}$(print_RULE_ "${HR}" "$((LINE_length1*3))")"
+                 && { \
+          echo -n "\${alignc}${COLOR1}";
+          print_RULE_ "${HR}" "$((LINE_length1*1))"; }
 
   shift $((OPTIND-1))
 # Total time for script
