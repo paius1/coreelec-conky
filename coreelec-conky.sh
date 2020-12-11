@@ -133,9 +133,12 @@ tss=$(/usr/bin/date +%s%N)
     if [[ "$1" == +(lo*|s*) ]]; then FORMAT="$1"; shift; fi
     if [[ "$1" == +(le*|r*|c*|h*) ]];  then ALIGN="$1";  shift; fi
   # arguments at end either order
-    if [[ "${@: -1}" == +(lo*|s*) ]]; then FORMAT="${@: -1}"; set -- "${@:1:$(($#-1))}"; fi
-    if [[ "${@: -1}" == +(le*|r*|c*|h*) ]]; then ALIGN="${@: -1}"; set -- "${@:1:$(($#-1))}"; fi
-    if [[ "${@: -1}" == +(lo*|s*) ]]; then FORMAT="${@: -1}"; set -- "${@:1:$(($#-1))}"; fi
+    for i; do :; done
+    if [[ "${i}" == +(lo*|s*) ]]; then FORMAT="${i}"; set -- "${@:1:$(($#-1))}"; fi
+    for i; do :; done
+    if [[ "${i}" == +(le*|r*|c*|h*) ]]; then ALIGN="${i}"; set -- "${@:1:$(($#-1))}"; fi
+    for i; do :; done
+    if [[ "${i}" == +(lo*|s*) ]]; then FORMAT="${i}"; set -- "${@:1:$(($#-1))}"; fi
 #
 # pass '-' to use these defaults or add options in conkyrc to skip
 #
@@ -145,16 +148,22 @@ then # add options after %/
 if [[ ! "${ALIGN}" =~ ^h ]]
 then                          # CASCADING
 #
-set -- "${@/%/ocltmueqirxsdf}"
+# OS data - this can add 3/10 of a second
+set -- "${@/%/o}"
 #
-# add processes
+# show now playing - this adds 3/10 of a second
+set -- "${@/%/n}"
+#
+set -- "${@/%/ncltmueqirxsdf}"
+#
+# show top processes - this adds 3/10 of a second
 #set -- "${@/%/p}"
 #
 # for benchmarking
 #set -- "${@/%/v}"
 #
 #FORMAT=long
-#ALIGN=right
+#ALIGN=center
 #
 else                          # HORIZONTAL #
 #
@@ -191,7 +200,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                    && \
                       { bash_REMATCH_ "${COLOR3}" '[[:blank:]][#]?([[:alnum:]]+)[[:blank:]]?}$';
                         return 1; }
-      local color
+      local gradient_color
 
       gradient_color="$(( $1 * STEPS / $2  ))"
       [ $gradient_color -gt 36 ] \
@@ -229,7 +238,6 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
  export -f is_CASCADING_
 
   function heading_() {
-
       echo -n  "${3} ${4}}${5}${6}"
           is_CASCADING_ "${2}" \
           && \
@@ -241,7 +249,6 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
   function justify_() { # ALIGN string on line_length
       local string="$2"
       local string length_text padding newline
-
             # remove any leading & trailing whitespaces
               string="$(sed -e 's/}[ \t]*/}/' -e 's/^[[:space:]]*//' \
                             -e 's/[[:space:]]*$//' <<< "${string}")"
@@ -380,7 +387,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
         INDENT2="${SPACING}"
     fi
 
-  if [[ "${@}" =~ e|q|i|r|x|s ]]
+  if [[ "$*" =~ e|q|i|r|x|s ]]
   then # outputing network information
 
   function no_IPINFO_() {
@@ -413,7 +420,7 @@ EOF
       # network interfaces
         ACTIVE_iface="$(bash_REMATCH_ "/sbin/ip route show" \
                                       '^d.*[[:space:]]([^[:space:]]+)[[:space:]]$')"
-        [[ "${@}" =~ e|q|i ]] \
+        [[ "$*" =~ e|q|i ]] \
                   && \
                      ACTIVE_wifi="$(bash_REMATCH_ "/sbin/ip addr" \
                                                   '(wlan[[:digit:]]):[[:blank:]]<BR')"
@@ -589,7 +596,7 @@ EOF
 
               case "${ALIGN}" in # make room for a long line
                 l*)    move_to="$((INDENT1+CHARACTER_width1*6))";;
-                r*) : "${move_to:=$((HALFSPACE1*7))}";;
+                r*) : "${move_to:=$((HALFSPACE1*6+2))}";;
                 c*) : "${move_to:=$((HALFSPACE1*11))}";;
                 *)     move_to=1;;
               esac
@@ -848,7 +855,7 @@ EOF
               line+="${COLOR2}"
               line+="$(/usr/bin/awk -v wlan="${ACTIVE_wifi}" \
                                     -F "[. ]+" '$0 ~ wlan {print $4}' /proc/net/wireless)"
-              line+="${COLOR_units}\${offset 2}%"
+              line+="${COLOR_units}\${offset 1}%"
 
         echo -n  "${GOTO} ${INDENT2}}${COLOR3}"
         justify_ "${ALIGN}" \
@@ -1045,8 +1052,9 @@ EOF
                 local align="$1"
                 local file diskstats match
                       file=/proc/diskstats
-                      then="$(created_ "${diskstats:=/tmp/${file##*/}-${align}}")"
-                      make_ROOM_for_ "${diskstats:=/tmp/${file##*/}-${align}}"
+                      diskstats="${diskstats:=/tmp/${file##*/}-${align}}"
+                      then="$(created_ "${diskstats}")"
+                      make_ROOM_for_ "${diskstats}"
                       bash_match='(^.*sd[a-z] .*|^.*blk0p2.*)'
                       dt="$(delay_ "${then}")"
                       [ "${then}" -eq 1 ] \
@@ -1218,7 +1226,7 @@ EOF
         echo     "\${voffset -1}\${hr}\${voffset $((LINE_height1/3))}"
 
             # allow some expansion for wider viewport
-              fudge="$(((LINE_length1-33)/4))"
+              fudge="$(((LINE_length1-34)/4))"
               spacing=( "$((HALFSPACE2*28))" "$((HALFSPACE2*fudge))" "$((HALFSPACE2*fudge))" )
 
         echo -n  "${GOTO} $((INDENT1+CHARACTER_width2))}\${voffset -2}"
@@ -1227,7 +1235,7 @@ EOF
         echo -n  "\${offset ${spacing[0]}}"
         echo -n  "PID"
         echo -n  "\${offset ${spacing[1]}}"
-        echo -n  "     %CPU"
+        echo -n  "    %CPU"
         echo -n  "\${offset ${spacing[2]}}"
         echo     "   %MEM"
 
@@ -1238,7 +1246,7 @@ EOF
             NPROCS=1
         fi
 
-            move_to="$((INDENT1+HALFSPACE1*4))"
+            move_to="$((INDENT1+HALFSPACE1*2))"
         echo -n  "${VOFFSET} ${SPACING}}${COLOR3}${FONT1}"
         awk -v indent="${GOTO} ${move_to}}" -v cpu="\${offset ${spacing[1]}}" \
             -v mem="\${offset ${spacing[2]}}" \
@@ -1261,13 +1269,12 @@ EOF
             kodi_port=8080
           
             function kodi_REQ_ {
-                /opt/bin/curl --silent -X POST --header "Content-Type: application/json" -d "$1" http://$kodi_user:$kodi_pass@$kodi_host:$kodi_port/jsonrpc
-                }
+                /opt/bin/curl --silent -X POST --header "Content-Type: application/json" -d "$1" http://$kodi_user:$kodi_pass@$kodi_host:$kodi_port/jsonrpc; }
  
             function parse_JSON_ {
                 local key=$1
-                awk -F"[,:}]" '{for(i=1;i<=NF;i++){if($i~/'"${key}"'\042/){print $(i+1)}}}' | tr -d '"'
-                }
+                awk -F"[,:}]" '{for(i=1;i<=NF;i++){if($i~/'"${key}"'\042/){print $(i+1)}}}' | tr -d '"'; }
+
             function player_INFO_() {
                 local match
                       match='^.*playerid":([[:digit:]]).*type":"([[:alpha:]]+)'
@@ -1276,63 +1283,59 @@ EOF
                                =~ \
                                ${match} ]] \
                                            && \
-                                               PLAYERID="${BASH_REMATCH[1]}"
+                                               PLAYERID="${BASH_REMATCH[1]}"; }
+                                               # may need this for audio 
                                                 #PLAYERTYPE="${BASH_REMATCH[2]}"; }
-                }
 
             function times_() {
                 parse_JSON_ '"hours|"minutes|"seconds' < \
                      <( kodi_REQ_ '{"jsonrpc": "2.0", "method": "Player.GetProperties", "params": { "playerid": '"$PLAYERID"', "properties": ["time","totaltime"] }, "id": 1}') \
                                 | tr  '\n' ' ' \
-                                   | awk '{print $1*3600+$2*60+$3, $4*3600+$5*60+$6}'
-                }
+                                   | awk '{print $1*3600+$2*60+$3, $4*3600+$5*60+$6}'; }
 
-       player_INFO_
-       if ((PLAYERID))
-       then
-           times=($(times_))
-           finish="$( /opt/bin/date -d "+$((times[1]-times[0])) secs" +'%I:%M%P')"
+        player_INFO_
+        if ((PLAYERID))
+        then
+            times=( $(times_) )
+            finish="$( /opt/bin/date -d "+$((times[1]-times[0])) secs" +'%I:%M%P')"
 
-        heading_ "" "${ALIGN}" "${GOTO}" "${INDENT1}" "${COLOR1}" "${FONT1}" "$((SPACING))"
-        print_RULE_ "${HR}" "$((LINE_length1/2-12))"
+        heading_ "$(print_RULE_ "${HR}" "$((LINE_length1/2-13))")" "${ALIGN}" "${GOTO}" "$((INDENT1*1))" "${COLOR1}" "${FONT1}" "$((SPACING+2))"
         echo -n  " Now Playing "
-
-
-           # remove ',' & ':' from items not part of json
-             nowplaying=$(sed -e 's/,*\([^"]\)/\1/g' -e 's/:*\([^"]\)/\1/g' < \
-                          <(kodi_REQ_ \
-                            '{"jsonrpc": "2.0", "method": "Player.GetItem", "params": { "properties": [ "showtitle", "streamdetails","title"], "playerid": '"$PLAYERID"' }, "id": "VideoGetItem"}'))
-           type=$( parse_JSON_ type <<< "${nowplaying}")
-
-        echo -n  "${FONT2}til\${offset ${HALFSPACE1}}${finish} "
-        print_RULE_ "${HR}" "$((LINE_length1/2-12))"
+        echo -n  "${FONT2}til${COLOR2}\${offset ${HALFSPACE1}}${finish} ${COLOR1}${FONT1}"
+        print_RULE_ "${HR}" "$((LINE_length1/2-13))"
         echo
-        #echo     "\${voffset -1}\${hr}\${voffset $((LINE_height1/3))}"
+
+
+           # remove ',' & ':' in titles & labels?
+             nowplaying=$(sed -e 's/,*\([ ]\)/\1/g;s/:*\([ ]\)/\1/g' < \
+                       <(kodi_REQ_ \
+                         '{"jsonrpc": "2.0","method":"Player.GetItem","params":{"properties":[ "showtitle","title","episode","season"],"playerid":'"$PLAYERID"'},"id":"VideoGetItem"}'))
+           type=$(parse_JSON_ type <<< "${nowplaying}")
 
            case "${type}" in
              e*)
                  series=$(parse_JSON_ showtitle <<< "${nowplaying}")
-                 episode_details=($( parse_JSON_ 'episode|label|season' < \
-                                          <(kodi_REQ_ \
-                                            '{"jsonrpc": "2.0", "method": "Player.GetItem", "params": { "properties": [ "episode", "season"], "playerid": '"$PLAYERID"' }, "id": "VideoGetItem"}')))
-                 episode="${episode_details[1]}"
+                 episode_details=( $(parse_JSON_ 'episode|label|season' <<< "${nowplaying}" ) )
+                 # picking up 'title'
+                   [[ "${episode_details[-1]}" =~ ^[0-9]+$ ]] \
+                                               || unset 'episode_details[-1]'
+                 episode="${episode_details[0]}"
                  season="${episode_details[-1]}"
                  unset 'episode_details[0]' 'episode_details[-1]'
                  title="${episode_details[*]}"
-                 main_line="${title:0:$((LINE_length1-INDENT1*2/CHARACTER_width1))}" \
+                 main_line="${title:0:$((LINE_length1-INDENT1*2/CHARACTER_width1))}"
                  series_line="$(printf "%.$((LINE_length1-INDENT1/CHARACTER_width1))s S%02d E%02d" "${series}" "${season}" "${episode}")"
                ;;
              m*)
-                 movie_details=$(kodi_REQ_ '{"jsonrpc": "2.0", "method": "Player.GetItem", "params": { "properties": [ "title","runtime"], "playerid": '"$PLAYERID"' }, "id": "VideoGetItem"}')
-                 movie_title=$(bash_REMATCH_ "${movie_details}" 'title":"(.*)","type')
-                 main_line="${movie_title:0:$((LINE_length2-INDENT2/CHARACTER_width2))}"
+                 title="$(parse_JSON_ label <<< "${nowplaying}")"
+                 main_line="${title:0:$((LINE_length2-INDENT2/CHARACTER_width2-4))}"
                 ;;
              c*)
             echo is channel
                 ;;
              u*)
-                 video=$( bash_REMATCH_ "$nowplaying" 'label":"(.*)","showtitle')
-                 main_line="${video:0:$((LINE_length1-INDENT1*4/CHARACTER_width1))}" \
+                 title=$(parse_JSON_ label <<< "${nowplaying}" )
+                 main_line="${title:0:$((LINE_length1-INDENT1*3/CHARACTER_width1))}"
                ;;
            esac  
 
@@ -1340,15 +1343,65 @@ EOF
         justify_ "center" \
                  "${main_line}" \
                  "$((LINE_length1-INDENT1/CHARACTER_width1))"
-            if is_SET_ "${series_line}"
-            then echo -n  "${GOTO} $((INDENT1+CHARACTER_width1*0))}${COLOR2}${FONT2}"
+
+           if is_SET_ "${series_line}"
+           then echo -n  "${GOTO} $((INDENT1+CHARACTER_width1*0))}${COLOR2}${FONT2}"
         justify_ "center" \
                  "${series_line}" \
                  "$((LINE_length2-INDENT1/CHARACTER_width2))"
-            fi
-        echo -n "${VOFFSET} $((SPACING+1))}"
-       fi     
-        ;;
+           fi
+
+           # remove ',' ':' and convert empty title to blank showtitle from items in playlist
+             get_items=$(sed -e 's/,*\([ ]\)/\1/g;s/:*\([ ]\)/\1/g;s/title":""/showtitle":" "/g' < \
+                            <(kodi_REQ_ \
+                              '{"jsonrpc":"2.0","method":"Playlist.GetItems","params":{"playlistid":'"$PLAYERID"',"properties":["title","showtitle"]},"id":"1"}'))
+           # array with title, & series or null
+             mapfile -t playlist < \
+                    <(parse_JSON_ 'label|showtitle' <<< "${get_items}" \
+                                | sed -e "s/^$/queued/;s/^/\${goto $((INDENT1+1))}/" \
+                                    | cut -c -"$((LINE_length2-4))") 
+
+           # slice array at 'Now Playing'
+             for ((i=0;i<"${#playlist[@]}";i+=2))
+             do if [[ "${playlist[$i]}" =~ ${title:0:8} \
+                   || "${playlist[$i]}" =~ "play" ]]
+                then playlist=("${playlist[@]:$((i+2))}")
+                     break
+                fi
+             done
+
+           playlist_max=5
+           if is_SET_ "${playlist_max}" \
+              && [ "${#playlist[@]}" -gt 0 ]
+           then
+        echo -n  "\${goto $((INDENT1*1))}${COLOR1}\${voffset ${SPACING}}${FONT2}"
+        print_RULE_ "${HR}" "$((LINE_length2/2-7))"
+        echo -n  " Up Next "
+        print_RULE_ "${HR}" "$((LINE_length2/2-5))"
+        echo    "${VOFFSET} $((SPACING+0))}"
+        echo -n "${FONT2}"
+
+               [[ "$((playlist_max*2))" -gt "${#playlist[@]}" ]] \
+                                         && \
+                             playlist_max=$((${#playlist[@]}/2))
+
+               for ((i=0;i<"$((playlist_max*2))";i+=2))
+               do
+        echo -n "${COLOR2}${playlist[$((i))]}${COLOR1}\${alignr}"
+        echo    "$(sed -e "s/[\${][^}]*[}]/ /g;s/queued//g" <<< "${playlist[$((i+1))]}" \
+                     | cut -c -17) "
+               done
+           fi
+
+               is_CASCADING_ "${ALIGN}" \
+               && { \
+        echo -n  "\${goto $((INDENT1*1))}${COLOR1}\${voffset -2}${FONT2}"
+        print_RULE_ "${HR}" "$((LINE_length1*1+6))"
+                  }
+        echo
+
+        fi
+      ;;
 
     o)                             # OS INFO #
        if is_CASCADING_ "${ALIGN}"
@@ -1505,7 +1558,7 @@ awk -v label="${label}" -v runtime="$((($(/usr/bin/date +%s%N)-tss)/1000000))" '
                  is_CASCADING_ "${ALIGN}" \
                  && { \
           echo -n "\${alignc}${COLOR1}";
-          print_RULE_ "${HR}" "$((LINE_length1*1))"; }
+          print_RULE_ "${HR}" "$((LINE_length1*1+6))"; }
 
   shift $((OPTIND-1))
 # Total time for script

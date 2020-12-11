@@ -7,13 +7,14 @@ Remotely Monitor coreELEC via Conky
      
    Usage:
    
-     /opt/bin/coreelec-conky.sh -[ocltumeqirxsdfp]
+     /opt/bin/coreelec-conky.sh -[ocltumeqirxsdfpn]
           [o] os info <ng>   [c] cpu usage         [l] load average
           [t] temp cpu & ram [u] uptime            [m] memory
           [e] network essid  [q] wireless quality  [i] lan address
           [r] network region [x] public ip         [s] network up/down speed
           [d] disk i/o       [f] mounted filesystems, free space, & graph of usage
           [p] processes command pid %cpu %mem (sorted w/ SORT=%CPU|%MEM)
+          [n] now playing
 
  Ꜿ plgroves gmail nov 2020
     
@@ -23,6 +24,12 @@ Remotely Monitor coreELEC via Conky
    Install entware:
     https://discourse.coreelec.org/t/what-is-entware-and-how-to-install-uninstall-it/1149
    
+     bash              full v5 functionality
+     bind-dig          not in busybox
+     coreutils-df      to allow for local-only exclude and fields
+     coreutils-sort    for various sorting methods
+     coreutils-stat    for checking file "creation" time
+     procps-ng-top     with busybox top -b - 'dumb': unknown terminal type
     
    Get hack font 
     https://github.com/source-foundry/Hack
@@ -53,11 +60,11 @@ Remotely Monitor coreELEC via Conky
    
    run: 
 
-    time ssh Hostname /opt/bin/coreelec-conky.sh -[ocltumeqirxsdfp] >/dev/null
+    time ssh Hostname /opt/bin/coreelec-conky.sh -[ocltumeqirxsdfpn] >/dev/null
       
    to determine 'interval' & add the following to your conky config:
    
-    ${texecpi 'interval' ssh Hostname /opt/bin/coreelec-conky.sh -[ocltumeqirxsdfp]}
+    ${texecpi 'interval' ssh Hostname /opt/bin/coreelec-conky.sh -[ocltumeqirxsdfpn]}
       
    alignment and cpu format can be changed from the command line
      
