@@ -76,4 +76,4 @@ Remotely Monitor coreELEC via Conky
    
    to remove all nonindented (debug) lines
      
-     sed -i -e '61,$ { /^[^[:blank:]]/d }' /opt/bin/coreelec-conky.sh 
+     sed -i -e '70,$ { /^[^[:blank:]]/d }' /opt/bin/coreelec-conky.sh 

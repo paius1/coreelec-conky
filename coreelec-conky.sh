@@ -85,9 +85,11 @@ tss=$(/usr/bin/date +%s%N)
   # height of filesystem bar (odd numbers center better)
     BAR_height=11
   # set to 0 for monochromatic data
-    COLOR=
+    UNICOLOR=
   # set to show memory stats as text
     MEM_text=1
+  # set for playlist which takes 2/10 of a second
+    playlist_max=
   # sort "NPROCS" processes on "SORT" (%CPU or %MEM)
     NPROCS=3
     SORT="%CPU"
@@ -128,19 +130,19 @@ tss=$(/usr/bin/date +%s%N)
     ASTERISK="\${voffset -1}@\${voffset 1}"
 
   # allow changing alignment & format from the conky config
-  # arguments at beginning either order
-    if [[ "$1" == +(le*|r*|c*|h*) ]];  then ALIGN="$1";  shift; fi
-    if [[ "$1" == +(lo*|s*) ]]; then FORMAT="$1"; shift; fi
-    if [[ "$1" == +(le*|r*|c*|h*) ]];  then ALIGN="$1";  shift; fi
-  # arguments at end either order
-    for i; do :; done
-    if [[ "${i}" == +(lo*|s*) ]]; then FORMAT="${i}"; set -- "${@:1:$(($#-1))}"; fi
-    for i; do :; done
-    if [[ "${i}" == +(le*|r*|c*|h*) ]]; then ALIGN="${i}"; set -- "${@:1:$(($#-1))}"; fi
-    for i; do :; done
-    if [[ "${i}" == +(lo*|s*) ]]; then FORMAT="${i}"; set -- "${@:1:$(($#-1))}"; fi
-#
-# pass '-' to use these defaults or add options in conkyrc to skip
+    if [[ "$*" =~ left|right|center|horiz ]]
+    then ALIGN="${BASH_REMATCH[0]}"; fi
+    if [[ "$*" =~ long|longer|longest ]]
+    then FORMAT="${BASH_REMATCH[0]}"; fi
+  # remove alignment/format from arguments  
+    set -- "${@/${ALIGN}/}"
+    set -- "${@/${FORMAT}/}"
+  # the cheese stands alone
+    set -- "${@: -1}"
+
+RENICE='10'
+
+# passing '-' only uses these defaults
 #
 if [ ${#1} -eq 1 ]
 then # add options after %/
@@ -188,7 +190,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
   export LC_ALL=C
 
   # pretty colors for data
-    gradient=('00d4ff' '00e4ff' '00fff4' '00ffd0' '00ffa8' '00ff83' '00ff5c' '00ff36')
+    gradient=( '00d4ff' '00e4ff' '00fff4' '00ffd0' '00ffa8' '00ff83' '00ff5c' '00ff36')
     gradient+=('00ff10' '17ff00' '3eff00' '65ff00' '8aff00' 'b0ff00' 'd7ff00' 'fdff00')
     gradient+=('fffa00' 'fff000' 'ffe600' 'ffdc00' 'ffd200' 'ffc800' 'ffbe00' 'ffb400')
     gradient+=('ffaa00' 'ffa000' 'ff9600' 'ff8c00' 'ff8200' 'ff7800' 'ff6e00' 'ff6400')
@@ -199,7 +201,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
       [ "${2:-0}" -eq 0 ] \
                    && \
                       { bash_REMATCH_ "${COLOR3}" '[[:blank:]][#]?([[:alnum:]]+)[[:blank:]]?}$';
-                        return 1; }
+                        return 0; }
       local gradient_color
 
       gradient_color="$(( $1 * STEPS / $2  ))"
@@ -214,7 +216,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
   return 0
  } 
  export -f color_
- 
+                           # need to change this to a while loop to make more generic 
   function print_RULE_() { # print string of $1, $2 characters long ( unicode assumes length 3)
       local hr="$1"
       local length="$2"
@@ -253,7 +255,8 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
               string="$(sed -e 's/}[ \t]*/}/' -e 's/^[[:space:]]*//' \
                             -e 's/[[:space:]]*$//' <<< "${string}")"
 
-      case "${1}" in
+      ( renice "${RENICE}" $BASHPID
+        case "${1}" in
 
           r*|c*)
                  # length of string stripped of conky formating
@@ -280,7 +283,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
       printf "%$((padding+${#string}))s" "${string}${newline}"
             ;;
 
-        esac
+        esac )
     return 0
  }
  export -f justify_
@@ -320,8 +323,8 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
 
   function created_() {
       /opt/bin/stat -c %Y "${1}" 2>/dev/null \
-      || \
-      echo $?
+               || \
+               echo $?
       return 0
  }
  export -f created_
@@ -391,12 +394,12 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
   then # outputing network information
 
   function no_IPINFO_() {
-    cat <<- EOF
+    cat <<- ' EOF'
     "ip": "NO.RE.P.LY"
     "city": "NO"
     "region": "PLACE LIKE"
     "country": "HM"
-EOF
+ EOF
  }
   export -f no_IPINFO_
 
@@ -469,7 +472,7 @@ EOF
 
         case "$FORMAT" in # How much data to print
 
-          *st) # cpu graph (pass longest)
+          *st)                                        # cpu graph (pass longest)
 
                if is_CASCADING_ "${ALIGN}"
                then
@@ -491,7 +494,7 @@ EOF
         echo -n  "\${voffset -$((LINE_height1*1+LINE_height2+(SPACING*1)))}"
 
              ;&
-          *r) # print per core percentages (pass longer to script)
+          *r)               # print per core percentages (pass longer to script)
 
                case "${ALIGN}" in
                  h*)
@@ -546,7 +549,7 @@ EOF
                        $1/10^3,units_style}' <<< "${1}"
               return 0; }
 
-              function bl_() {
+              function bl_() { # cpu % per side
                   local align="$1"
                   local cpu_stats
                         cpu_stats=/tmp/stat-"${ALIGN:0:1}"
@@ -573,15 +576,15 @@ EOF
 
                    # concatenate line so its closer to 80 columns
                      l_string="\${offset 1}${FONT2}"
-                     l_string+="\${color $(color_ "${sides[1]%.*}" "${COLOR:-100}")}"
+                     l_string+="\${color $(color_ "${sides[1]%.*}" "${UNICOLOR:-100}")}"
                      l_string+="${sides[1]}"
                      l_string+="\${offset ${HALFSPACE2}}${COLOR_units}%"
                      l_string+="\${offset ${HALFSPACE2}}${ASTERISK}"
                      l_string+="\${offset -${CHARACTER_width2}}"
-                     l_string+="\${color $(color_ "$((fqz[3]-fqz[5]))" "$(((fqz[4]-fqz[5])*${COLOR:-1}))")}"
+                     l_string+="\${color $(color_ "$((fqz[3]-fqz[5]))" "$(((fqz[4]-fqz[5])*${UNICOLOR:-1}))")}"
                      l_string+="$(human_FREQUENCY_ "${fqz[3]}")"
                      l_string+="\${offset ${HALFSPACE2}}${VOFFSET} -1}"
-                     l_string+="\${color $(color_ "${sides[0]%.*}" "${COLOR:-100}")}"
+                     l_string+="\${color $(color_ "${sides[0]%.*}" "${UNICOLOR:-100}")}"
                      l_string+="${FONT2}${sides[0]}"
                      l_string+="\${offset 2}${COLOR_units}%\${offset 2}"
               elif [[ "${ALIGN}" =~ ^r ]] # homogeneous cpu, position frequency after cpu%
@@ -591,7 +594,7 @@ EOF
               # add frequency for only/'LITLE' cores
                 l_string+="${ASTERISK}"
                 l_string+="\${offset -${CHARACTER_width1}}"
-                l_string+="\${color $(color_ "$((fqz[0]-fqz[2]))" "$(((fqz[1]-fqz[2])*${COLOR:-1}))")}"
+                l_string+="\${color $(color_ "$((fqz[0]-fqz[2]))" "$(((fqz[1]-fqz[2])*${UNICOLOR:-1}))")}"
                 l_string+="$(human_FREQUENCY_ "${fqz[0]}")"
 
               case "${ALIGN}" in # make room for a long line
@@ -612,7 +615,7 @@ EOF
                 *)  : "${move_to:=$((CHARACTER_width1*2))}"  ;;
               esac
 
-              c_line+="\${color $(color_ "${core_per100[0]%.*}" "${COLOR:-100}")}"
+              c_line+="\${color $(color_ "${core_per100[0]%.*}" "${UNICOLOR:-100}")}"
               c_line+="${core_per100[0]}"
               c_line+="\${offset 1}${COLOR_units}%"
 
@@ -656,7 +659,7 @@ EOF
 
             mapfile -d' '  loadavg < /proc/loadavg
 
-            if is_EMPTY_ "${COLOR}"
+            if is_EMPTY_ "${UNICOLOR}"
             then for avg in {0..2}
                 do case "${loadavg[${avg}]}" in
                      0*)    load_color+=(00d4ff);;
@@ -687,7 +690,7 @@ EOF
                  "$((LINE_length1-INDENT2/CHARACTER_width1))"
 
             if [ "${loadavg[1]%.*}" -ge 4 ]
-            then # high load average can mean blocked processess
+            then # high loadavg can mean blocked processess
                  mapfile -t procs < \
                         <( bash_REMATCH_ /proc/stat '^procs_(.*)+' )
         echo -n  "\${color #ff3200}\${alignc} ${procs[0]} ${procs[1]}"
@@ -708,7 +711,7 @@ EOF
               mapfile -t temps 2>/dev/null < \
                      <( cat /sys/class/thermal/thermal_zone*/temp)
 
-            # name thermal zones ( note the space before element n+1 )
+            # name thermal zones ( note the space before element 1+n )
               zones=('Cpu:' ' Mem:')
               is_HORIZ_ "${ALIGN}" \
                         && \
@@ -717,10 +720,9 @@ EOF
             # unicode character ° throws off justify function
               right=0
               if [[ "${ALIGN}" = +(c*|r*) ]]
-              then right=2
-              fi
+              then right=2; fi
 
-            if is_EMPTY_ "${COLOR}"
+            if is_EMPTY_ "${UNICOLOR}"
             then for temp in $(seq "${#temps[@]}")
                  do case "${temps[$((temp-1))]}" in
                       2*)  temp_color+=(00d4ff);;
@@ -812,14 +814,14 @@ EOF
                           && \
                              width="60"
 
-        echo -n  "\${color $(color_ "${memory[2]%.*}" "${COLOR:-100}")}"
+        echo -n  "\${color $(color_ "${memory[2]%.*}" "${UNICOLOR:-100}")}"
         echo -n  "\${execbar $((LINE_height1/3)),${width} echo ${memory[2]%.*}}"
 
                  is_CASCADING_ "${ALIGN}" \
                  && \
         echo
             else #                    text
-                m_line+="\${color $(color_ "${memory[2]%.*}" "${COLOR:-100}")}"
+                m_line+="\${color $(color_ "${memory[2]%.*}" "${UNICOLOR:-100}")}"
                 m_line+="${memory[2]}%"
                 m_line+=" ${memory[0]}${COLOR3}/${memory[1]}"
                 m_line+="${FONT_units}${COLOR_units}\${offset 3}MB"
@@ -984,7 +986,8 @@ EOF
             # if created_ returned error then net_stats !exist
               [ "${then}" -eq 1 ] \
                            && \
-                              touch "${net_stats}"
+                              { touch "${net_stats}";
+                                dt=1; }
 
             # read network rx,tx stats into array
               mapfile -t rawbytes \
@@ -1021,10 +1024,10 @@ EOF
                            sublabel=( '↑' '↓' )
 
             s_line+="${COLOR2}${FONT1}${sublabel[0]}"
-            s_line+="\${color $(color_ "$((rxtx[1]))" "${COLOR:-${hi_up}}")}"
+            s_line+="\${color $(color_ "$((rxtx[1]))" "${UNICOLOR:-${hi_up}}")}"
             s_line+="$(human_NETSPEED_ "${rxtx[1]}")"
             s_line+="${COLOR2}${FONT1} ${sublabel[1]}"
-            s_line+="\${color $(color_ " $((rxtx[0]))" "${COLOR:-${hi_dn}}")}"
+            s_line+="\${color $(color_ " $((rxtx[0]))" "${UNICOLOR:-${hi_dn}}")}"
             s_line+="$(human_NETSPEED_ "${rxtx[0]}")"
               is_CASCADING_ "${ALIGN}" \
                             && \
@@ -1061,7 +1064,7 @@ EOF
                                    && \
                                       touch "${diskstats}"
 
-                ( renice -10
+                ( renice "${RENICE}"
                   while IFS= read -r a <&3 \
                               && \
                         IFS= read -r b <&4
@@ -1101,8 +1104,8 @@ EOF
                                       echo "${diskio[3]}" > "${speed}_write"
 
             # color disk io
-              diskio_color=(  "$(color_ "${diskio[2]}" "$((${hi_read:-1} *${COLOR:-1}/4))")" )
-              diskio_color+=( "$(color_ "${diskio[3]}" "$((${hi_write:-1}*${COLOR:-1}/4+1))")" )
+              diskio_color=(  "$(color_ "${diskio[2]}" "$((${hi_read:-1} *${UNICOLOR:-1}/4))")" )
+              diskio_color+=( "$(color_ "${diskio[3]}" "$((${hi_write:-1}*${UNICOLOR:-1}/4+1))")" )
 
             # variables for conky
               offset=0
@@ -1159,10 +1162,11 @@ EOF
                                 && \
                                    width="$((width-HALFSPACE1*5))"
 
-                { /opt/bin/df   -h "${local_only[@]}" -x tmpfs -x devtmpfs -x squashfs -x iso9660 \
+                { ( renice "${RENICE}" $BASHPID
+                    /opt/bin/df   -h "${local_only[@]}" -x tmpfs -x devtmpfs -x squashfs -x iso9660 \
                                 --output=target,avail,used,pcent \
                             | tail  -n +2 \
-                                 | /opt/bin/sort  -k 4 -i \
+                                 | /opt/bin/sort  -k 4 -i ) \
                             | \
                   while read -r TARGET AVAIL USED PCENT
                   do
@@ -1182,7 +1186,7 @@ EOF
                       then # print linear
         echo -n  "\${offset 0}${COLOR1}"
         echo -n  " ${target:0:8}"
-        echo -n  "\${color $(color_ "$((percent))" "${COLOR:-100}")}"
+        echo -n  "\${color $(color_ "$((percent))" "${UNICOLOR:-100}")}"
         echo -n  "\${offset ${HALFSPACE1}}$(printf "%5s" "${AVAIL}") "
                       else # print table
         echo -n  "${GOTO} ${INDENT1}}${COLOR1}"
@@ -1190,7 +1194,7 @@ EOF
         echo -n  "${GOTO} ${INDENT2}}${COLOR2}"
         echo -n  "$(printf %14s "${AVAIL}")"
         echo -n  "${GOTO} $((INDENT2+HALFSPACE1*26))}"
-        echo -n  "\${color $(color_ "${percent%.*}" "${COLOR:-100}")}"
+        echo -n  "\${color $(color_ "${percent%.*}" "${UNICOLOR:-100}")}"
         echo -n  "\${execbar ${BAR_height},${width} echo \"${percent%.*}\"}"
         echo -n  "${GOTO} $((INDENT2+HALFSPACE1*29+1))}"
         echo -n "\${offset $((width*${percent%.*}/125-HALFSPACE1*5))}"
@@ -1254,7 +1258,7 @@ EOF
                  printf "%s%-14.14s%7d%s%6.1f%%%s%5.1f%%\n",
                          indent,$11,$1,cpu,$7,mem,$8;
               else printf}' < \
-            <(renice -10 $BASHPID
+            <(renice "${RENICE}" $BASHPID
               /opt/bin/top  -bn 2 -d 0.01 -c -o +"${SORT}" \
                          | sed  -e '/top/d' -e "${list_pad}"\
                              | /usr/bin/tail  -n +11 \
@@ -1267,7 +1271,7 @@ EOF
             kodi_user=kodi
             kodi_host=localhost
             kodi_port=8080
-          
+
             function kodi_REQ_ {
                 /opt/bin/curl --silent -X POST --header "Content-Type: application/json" -d "$1" http://$kodi_user:$kodi_pass@$kodi_host:$kodi_port/jsonrpc; }
  
@@ -1296,84 +1300,88 @@ EOF
         player_INFO_
         if ((PLAYERID))
         then
-            times=( $(times_) )
-            finish="$( /opt/bin/date -d "+$((times[1]-times[0])) secs" +'%I:%M%P')"
 
         heading_ "$(print_RULE_ "${HR}" "$((LINE_length1/2-13))")" "${ALIGN}" "${GOTO}" "$((INDENT1*1))" "${COLOR1}" "${FONT1}" "$((SPACING+2))"
         echo -n  " Now Playing "
+            times=( $(times_) )
+            finish="$( /opt/bin/date -d "+$((times[1]-times[0])) secs" +'%I:%M%P')"
         echo -n  "${FONT2}til${COLOR2}\${offset ${HALFSPACE1}}${finish} ${COLOR1}${FONT1}"
         print_RULE_ "${HR}" "$((LINE_length1/2-13))"
         echo
 
 
-           # remove ',' & ':' in titles & labels?
-             nowplaying=$(sed -e 's/,*\([ ]\)/\1/g;s/:*\([ ]\)/\1/g' < \
+            # remove ',' & ':' in titles & labels?
+              nowplaying=$(sed -e 's/,*\([ ]\)/\1/g;s/:*\([ ]\)/\1/g' < \
                        <(kodi_REQ_ \
                          '{"jsonrpc": "2.0","method":"Player.GetItem","params":{"properties":[ "showtitle","title","episode","season"],"playerid":'"$PLAYERID"'},"id":"VideoGetItem"}'))
-           type=$(parse_JSON_ type <<< "${nowplaying}")
+            type=$(parse_JSON_ type <<< "${nowplaying}")
 
-           case "${type}" in
-             e*)
-                 series=$(parse_JSON_ showtitle <<< "${nowplaying}")
-                 episode_details=( $(parse_JSON_ 'episode|label|season' <<< "${nowplaying}" ) )
-                 # picking up 'title'
-                   [[ "${episode_details[-1]}" =~ ^[0-9]+$ ]] \
-                                               || unset 'episode_details[-1]'
-                 episode="${episode_details[0]}"
-                 season="${episode_details[-1]}"
-                 unset 'episode_details[0]' 'episode_details[-1]'
-                 title="${episode_details[*]}"
-                 main_line="${title:0:$((LINE_length1-INDENT1*2/CHARACTER_width1))}"
-                 series_line="$(printf "%.$((LINE_length1-INDENT1/CHARACTER_width1))s S%02d E%02d" "${series}" "${season}" "${episode}")"
-               ;;
-             m*)
-                 title="$(parse_JSON_ label <<< "${nowplaying}")"
-                 main_line="${title:0:$((LINE_length2-INDENT2/CHARACTER_width2-4))}"
+            case "${type}" in
+              e*)
+                  series=$(parse_JSON_ showtitle <<< "${nowplaying}")
+                  episode_details=( $(parse_JSON_ 'episode|label|season' <<< "${nowplaying}" ) )
+                  # picking up 'title'
+                    [[ "${episode_details[-1]}" =~ ^[0-9]+$ ]] \
+                                                || unset 'episode_details[-1]'
+                  episode="${episode_details[0]}"
+                  season="${episode_details[-1]}"
+                  unset 'episode_details[0]' 'episode_details[-1]'
+                  title="${episode_details[*]}"
+                  main_line="${title:0:$((LINE_length1-INDENT1*1/CHARACTER_width1))}"
+                  series_line="$(printf "%.$((LINE_length1-INDENT1/CHARACTER_width1))s S%02d E%02d" "${series}" "${season}" "${episode}")"
                 ;;
-             c*)
-            echo is channel
+              m*)
+                  title="$(parse_JSON_ label <<< "${nowplaying}")"
+                  main_line="${title:0:$((LINE_length2-INDENT2/CHARACTER_width2-4))}"
+                 ;;
+              c*)
+             echo is channel
+                 ;;
+              u*)
+                  title=$(parse_JSON_ label <<< "${nowplaying}" )
+                  main_line="${title:0:$((LINE_length1-INDENT1*3/CHARACTER_width1))}"
                 ;;
-             u*)
-                 title=$(parse_JSON_ label <<< "${nowplaying}" )
-                 main_line="${title:0:$((LINE_length1-INDENT1*3/CHARACTER_width1))}"
-               ;;
-           esac  
+            esac  
 
         echo -n  "${GOTO} $((INDENT1+0))}${COLOR3}${FONT1}"
         justify_ "center" \
                  "${main_line}" \
                  "$((LINE_length1-INDENT1/CHARACTER_width1))"
 
-           if is_SET_ "${series_line}"
-           then echo -n  "${GOTO} $((INDENT1+CHARACTER_width1*0))}${COLOR2}${FONT2}"
+            if is_SET_ "${series_line}"
+            then echo -n  "${GOTO} $((INDENT1+CHARACTER_width1*0))}${COLOR2}${FONT2}"
         justify_ "center" \
                  "${series_line}" \
                  "$((LINE_length2-INDENT1/CHARACTER_width2))"
-           fi
+            fi
 
-           # remove ',' ':' and convert empty title to blank showtitle from items in playlist
-             get_items=$(sed -e 's/,*\([ ]\)/\1/g;s/:*\([ ]\)/\1/g;s/title":""/showtitle":" "/g' < \
-                            <(kodi_REQ_ \
-                              '{"jsonrpc":"2.0","method":"Playlist.GetItems","params":{"playlistid":'"$PLAYERID"',"properties":["title","showtitle"]},"id":"1"}'))
-           # array with title, & series or null
-             mapfile -t playlist < \
-                    <(parse_JSON_ 'label|showtitle' <<< "${get_items}" \
-                                | sed -e "s/^$/queued/;s/^/\${goto $((INDENT1+1))}/" \
-                                    | cut -c -"$((LINE_length2-4))") 
+            if is_SET_ "${playlist_max}"
+            then
+                function play_list_() {
+                    renice "${RENICE}" $BASHPID
+                    parse_JSON_ 'label|title' < \
+                               <(sed -e 's/,*\([ ]\)/\1/g;s/:*\([ ]\)/\1/g;s/\(title":"\)"/\1 "/g' < \
+                                    <(kodi_REQ_ '{"jsonrpc":"2.0","method":"Playlist.GetItems","params":{"playlistid":'"$PLAYERID"',"properties":["title","showtitle"]},"id":"1"}') \
+                                    | \
+                                    awk -F"[}]" '{for(i=1;i<NF;i++){print $i}}' \
+                                    | \
+                                    sed '/showtitle/!s/","title.*/","showtitle":" &}/g' ) \
+                                    | \
+                                    sed -e "s/^ $/null/;s/^/\${goto $((INDENT1+1))}/" ;}
 
-           # slice array at 'Now Playing'
-             for ((i=0;i<"${#playlist[@]}";i+=2))
-             do if [[ "${playlist[$i]}" =~ ${title:0:8} \
-                   || "${playlist[$i]}" =~ "play" ]]
-                then playlist=("${playlist[@]:$((i+2))}")
-                     break
-                fi
-             done
+                mapfile -t playlist < <(play_list_ )
 
-           playlist_max=5
-           if is_SET_ "${playlist_max}" \
-              && [ "${#playlist[@]}" -gt 0 ]
-           then
+               # slice array at 'Now Playing'
+                 for ((i=0;i<"${#playlist[@]}";i+=3))
+                 do if [[ "${playlist[$i]}" =~ ${title:0:8} \
+                       || "${playlist[$i]}" =~ "play" ]]
+                    then playlist=( "${playlist[@]:$((i+3))}" )
+                        break
+                    fi
+                 done
+            
+                if [ "${#playlist[@]}" -gt 0 ]
+                then
         echo -n  "\${goto $((INDENT1*1))}${COLOR1}\${voffset ${SPACING}}${FONT2}"
         print_RULE_ "${HR}" "$((LINE_length2/2-7))"
         echo -n  " Up Next "
@@ -1381,23 +1389,28 @@ EOF
         echo    "${VOFFSET} $((SPACING+0))}"
         echo -n "${FONT2}"
 
-               [[ "$((playlist_max*2))" -gt "${#playlist[@]}" ]] \
-                                         && \
-                             playlist_max=$((${#playlist[@]}/2))
+                    [[ "$((playlist_max*3))" -gt "${#playlist[@]}" ]] \
+                                              && \
+                                  playlist_max=$((${#playlist[@]}/3))
 
-               for ((i=0;i<"$((playlist_max*2))";i+=2))
-               do
-        echo -n "${COLOR2}${playlist[$((i))]}${COLOR1}\${alignr}"
-        echo    "$(sed -e "s/[\${][^}]*[}]/ /g;s/queued//g" <<< "${playlist[$((i+1))]}" \
-                     | cut -c -17) "
-               done
-           fi
-
-               is_CASCADING_ "${ALIGN}" \
-               && { \
+                    for ((i=0;i<"$((playlist_max*3))";i+=3))
+                    do text_length=$((LINE_length2+4))
+                       if [[ ! "${playlist[$((i+1))]}" =~ null ]]
+                       then
+                           playlist[$((i+1))]="$(sed -e "s/[\${][^}]*[}]//g" <<< "${playlist[$((i+1))]}")"
+                           text_length=$((text_length-"${#playlist[$((i+1))]}"+1))
+                       fi
+        echo -n "${COLOR2}$(sed -e 's/play/yo.tu.be/;s/}[ ]*/}/' <<< \
+                       "${playlist[${i}]:0:${text_length}}${COLOR1}\${alignr}")"
+        sed -e "s/null//g" <<< "${playlist[$((i+1))]}"
+                    done
+            fi
+        fi
+                is_CASCADING_ "${ALIGN}" \
+                && { \
         echo -n  "\${goto $((INDENT1*1))}${COLOR1}\${voffset -2}${FONT2}"
         print_RULE_ "${HR}" "$((LINE_length1*1+6))"
-                  }
+                   }
         echo
 
         fi
