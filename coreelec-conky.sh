@@ -197,7 +197,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
     gradient+=('ff5a00' 'ff5000' 'ff4600' 'ff3c00' 'ff3200')
     STEPS="${#gradient[@]}"
 
-  function color_() { # Return HEX value from gradient_ array
+  function color_() { # Return HEX value from gradient array
       [ "${2:-0}" -eq 0 ] \
                    && \
                       { bash_REMATCH_ "${COLOR3}" '[[:blank:]][#]?([[:alnum:]]+)[[:blank:]]?}$';
@@ -450,7 +450,8 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                         # cpu stats collated for later use
                           echo -n "" > "${cpu_stats:0:11}"
 
-                  ( while  IFS= read -r a <&3 \
+                  ( renice "${RENICE}" "${BASHPID}"
+                    while  IFS= read -r a <&3 \
                                  && \
                            IFS= read -r b <&4
                     do     echo  "${a} ${b}" \
@@ -563,14 +564,13 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                            >(awk 'NR==2||NR==3{S13+=$13;S2+=$2;S15+=$15;S4+=$4;S16+=$16;S5+=$5}
                                    END
                                   {printf "%5.1f\n",(S13-S2+S15-S4)*100/(S13-S2+S15-S4+S16-S5)}') \
-                           >/dev/null
-              }
+                           >/dev/null; }
 
               # frequency current, minimum, & maximum
                 mapfile -t fqz < \
                        <(cat /sys/devices/system/cpu/cpufreq/policy*/scaling_*_freq)
 
-              # add usage & frequency for heterogeneous 'big' cores
+              # add usage & frequency for heterogeneous 'big' side
               if [ "${HETEROGENEOUS}" -eq 2 ]
               then mapfile -t sides < <(bl_ "${ALIGN}")
 
@@ -591,7 +591,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
               then move_to="$((HALFSPACE1*2))"
               fi
 
-              # add frequency for only/'LITLE' cores
+              # add frequency for only/'LITLE' side
                 l_string+="${ASTERISK}"
                 l_string+="\${offset -${CHARACTER_width1}}"
                 l_string+="\${color $(color_ "$((fqz[0]-fqz[2]))" "$(((fqz[1]-fqz[2])*${UNICOLOR:-1}))")}"
@@ -636,7 +636,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
             if   [[ "${FORMAT}" =~ est ]] \
                                 || \
                  [ "$((${core_per100[0]%.*}))" -gt 70 ]
-            then # iowait and softirq for case: longe* or high cpu usage
+            then         # iowait and softirq for case: longe* or high cpu usage
         echo -n "${FONT2}${COLOR1}"
         awk 'NR==1||NR==8{start=($2+$3+$4+$5+$6+$7+$8+$9+$10);
              end=($13+$14+$15+$16+$17+$18+$19+$20+$21);
@@ -690,7 +690,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                  "$((LINE_length1-INDENT2/CHARACTER_width1))"
 
             if [ "${loadavg[1]%.*}" -ge 4 ]
-            then # high loadavg can mean blocked processess
+            then                      # high loadavg can mean blocked processess
                  mapfile -t procs < \
                         <( bash_REMATCH_ /proc/stat '^procs_(.*)+' )
         echo -n  "\${color #ff3200}\${alignc} ${procs[0]} ${procs[1]}"
@@ -755,7 +755,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                  "$((LINE_length1-INDENT2/CHARACTER_width1+right))"
 
             if [ "$((((temps[0]+(1000/2))/1000)))" -ge "${hot}" ]
-            then          # Hi temp, what process is using most cpu
+            then                       # Hi temp, what process is using most cpu
         echo -n  "\${color #ff3200}${FONT1}"
 
                 is_CASCADING_ "${ALIGN}" \
@@ -837,7 +837,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
             fi
 
             if [ "${memory[2]%.*}" -ge  80 ]
-            then # high memory usage, who's the biggest hog
+            then                      # high memory usage, who's the biggest hog
         echo -n "${GOTO} $((INDENT2+10))}${FONT1}\${color red}"
         awk '{printf "%-9s %d %2.1f%% %5.1f Mb %5.1f Mb\n",
                       $1,$2,$3,($4/1024),($5/1024^2)}' < \
@@ -873,7 +873,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
 
             #match="${ACTIVE_wifi}:[[:blank:]][[:digit:]]+[[:blank:]]*([[:digit:]]+)\."
 
-            sq_line="Speed: ${COLOR3}$(:) "
+            sq_line="Speed: ${COLOR3}$(:) " # error in shellcheck to remind me
             #sq_line+="\${offset 3}${COLOR2}Quality: ${COLOR3}"
             #sq_line+="$(/usr/bin/awk -v wlan="${ACTIVE_wifi}" \
                                      #-F "[. ]+" '$0 ~ wlan {print $4}' /proc/net/wireless)"
@@ -941,7 +941,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
             return='[\"].*[\"](.*)[\"]' # everything between 2nd set of "'s
 
             for match in "${matches[@]}"
-            do  ip_data+=("$(bash_REMATCH_ "${IP_data}" "${match}${return}" )")
+            do  ip_data+=( "$(bash_REMATCH_ "${IP_data}" "${match}${return}" )" )
             done
 
         echo -n  "${GOTO} ${INDENT2}}${COLOR3}"
@@ -1148,7 +1148,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
 
             # to shorten the list especially for horizontal format
               skip_target=( "flash" "" )
-            # ignore sshfs & smb
+            # ignore sshfs
               local_only=(-l)
 
             if   is_NOT_file_ "${file}" \
@@ -1167,7 +1167,7 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                                 --output=target,avail,used,pcent \
                             | tail  -n +2 \
                                  | /opt/bin/sort  -k 4 -i ) \
-                            | \
+                                               | \
                   while read -r TARGET AVAIL USED PCENT
                   do
                       target="${TARGET##*/}"   # yes those are "'s in a match
@@ -1371,14 +1371,14 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
 
                 mapfile -t playlist < <(play_list_ )
 
-               # slice array at 'Now Playing'
-                 for ((i=0;i<"${#playlist[@]}";i+=3))
-                 do if [[ "${playlist[$i]}" =~ ${title:0:8} \
-                       || "${playlist[$i]}" =~ "play" ]]
-                    then playlist=( "${playlist[@]:$((i+3))}" )
-                        break
-                    fi
-                 done
+                # slice array at 'Now Playing'
+                  for ((i=0;i<"${#playlist[@]}";i+=3))
+                  do if [[ "${playlist[$i]}" =~ ${title:0:8} \
+                        || "${playlist[$i]}" =~ "play" ]]
+                     then playlist=( "${playlist[@]:$((i+3))}" )
+                         break
+                     fi
+                  done
             
                 if [ "${#playlist[@]}" -gt 0 ]
                 then
@@ -1402,9 +1402,9 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                        fi
         echo -n "${COLOR2}$(sed -e 's/play/yo.tu.be/;s/}[ ]*/}/' <<< \
                        "${playlist[${i}]:0:${text_length}}${COLOR1}\${alignr}")"
-        sed -e "s/null//g" <<< "${playlist[$((i+1))]}"
+        sed -e "s/null/ /g" <<< "${playlist[$((i+1))]} "
                     done
-            fi
+                fi
         fi
                 is_CASCADING_ "${ALIGN}" \
                 && { \
