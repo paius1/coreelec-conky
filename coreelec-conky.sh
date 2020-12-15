@@ -1316,18 +1316,22 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                                    | /usr/bin/awk '{print $1*3600+$2*60+$3,
                                                           $4*3600+$5*60+$6}'; }
 
+            function percentage_() {
+                parse_JSON_ 'percentage' < \
+                     <( kodi_REQ_ '{"jsonrpc":"2.0","method":"Player.GetProperties","params":{"playerid":1,"properties":["percentage"]},"id":"1"}'); }
+
         player_INFO_
         if ((PLAYERID))
         then
 
-        heading_ "$(print_RULE_ "${HR}" "$((LINE_length1/2-13))")" "${ALIGN}" "${GOTO}" "$((INDENT1*1))" "${COLOR1}" "${FONT1}" "$((SPACING+2))"
-        echo -n  " Now Playing "
             times=( $(times_) )
             finish="$( /opt/bin/date -d "+$((times[1]-times[0])) secs" +'%I:%M%P')"
-        echo -n  "${FONT2}til${COLOR2}\${offset ${HALFSPACE1}}${finish} ${COLOR1}${FONT1}"
-        print_RULE_ "${HR}" "$((LINE_length1/2-13))"
-        echo
 
+        # print finish time
+          heading_ "$(print_RULE_ "${HR}" "$((LINE_length1/2-13))") Now Playing " "${ALIGN}" "${GOTO}" "$((INDENT1*1))" "${COLOR1}" "${FONT1}" "$((SPACING+2))"
+          echo -n  "${FONT2}til${COLOR2}\${offset ${HALFSPACE1}}${finish:1: -1} ${COLOR1}${FONT1}"
+          print_RULE_ "${HR}" "$((LINE_length1/2-13))"
+          echo
 
             # remove ',' & ':' in titles & labels?
               nowplaying=$(/usr/bin/sed -e 's/,*\([ ]\)/\1/g;s/:*\([ ]\)/\1/g' < \
