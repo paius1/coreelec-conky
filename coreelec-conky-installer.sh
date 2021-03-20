@@ -114,7 +114,7 @@
 
   # check for entware packages or install
     install="/opt/bin/opkg install "
-    Packages=('bash' 'bind-dig' 'coreutils-df' 'coreutils-sort' 'coreutils-stat' 'procps-ng-top')
+    Packages=('bash' 'bind-dig' 'coreutils-date' 'coreutils-df' 'coreutils-sort' 'coreutils-stat' 'procps-ng-top')
     mapfile -t Installed < <(ssh root@"${HOST}" /opt/bin/opkg list-installed | awk '{print $1}')
     for package in "${Packages[@]}"; do
      if [[  " ${Installed[@]} " =~ " $package " ]]
@@ -155,7 +155,9 @@
  # copy conky config to home/.conky
    [ -d ~/.conky ] \
      || { echo "creating directory ~/.conky/"; mkdir ~/.conky; }
-   cp ./coreelec-conkyrc ~/.conky/
+   [ -f ~/.conky/coreelec-conkyrc ] \
+     || { echo "adding coreelec-conkyrc to ~/.conky/"; cp ./coreelec-conkyrc ~/.conky/; }
+
  # run conky 
    echo " Now run: conky -c ~/.conky/coreelec-conkyrc"
   conky -c ~/.conky/coreelec-conkyrc
