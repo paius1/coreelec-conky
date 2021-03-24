@@ -3,7 +3,7 @@
 #  Outputs CoreELEC OS stats in conky printable format
 #  uses entware's bash, bind-dig, coreutils-df, coreutils-sort,
 #                 coreutils-stat, procps-ng-top
-#     
+#
 #   Usage: SCRIPTNAME -[ocltumeqirxsdfpn]
 #          [o] os info <ng>   [c] cpu usage         [l] load average
 #          [t] temp cpu & ram [u] uptime            [m] memory
