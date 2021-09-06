@@ -52,7 +52,7 @@
                 fi
            else HOSTS=($(grep -oP "${KODIS[0]}[[:space:]]+\K[[:alnum:]]+" /etc/hosts))
                 n=1
-                echo "${HOSTS[0]} ${KODIS[@]}"
+                echo "${HOSTS[*]} ${KODIS[*]}"
            fi
 
        else # manual input of host
@@ -114,7 +114,7 @@
 
   # check for entware packages or install
     install="/opt/bin/opkg install "
-    Packages=('bash' 'bind-dig' 'coreutils-date' 'coreutils-df' 'coreutils-sort' 'coreutils-stat' 'procps-ng-top')
+    Packages=('bash' 'bind-dig' 'coreutils-date' 'coreutils-df' 'coreutils-sort' 'coreutils-stat' 'procps-ng-top' 'procps-ng-ps')
     mapfile -t Installed < <(ssh root@"${HOST}" /opt/bin/opkg list-installed | awk '{print $1}')
     for package in "${Packages[@]}"; do
      if [[  " ${Installed[@]} " =~ " $package " ]]
@@ -126,39 +126,51 @@
     done
     echo -e "\r All packages installed            \n"
 
-  # can ssh w/o password, have entware packages installed
-   # copy script to /storage/.opt/bin, chmod +x 
-    # install conkyrc
+  # we can ssh w/o password, have entware packages installed
 
-  if ssh root@"${HOST}" '[ -r /storage/.opt/bin/coreelec-conky.sh ]'
-  then # file exists
-         read -rp "file exists, replace [y/N] " reply
-         reply="${reply:-N}"
-         if [[ "${reply}" =~ ^N|^n ]]
-         then echo "exiting... Goodbye!"; exit 1
-         elif [[ "${reply}" =~ ^Y|^y ]]
-         then echo "moving existing script to coreelec-conky.sh.bak"
-              ssh root@"${HOST}" mv /storage/.opt/bin/coreelec-conky.sh /storage/.opt/bin/coreelec-conky.sh.bak
-         else echo " Invalid reply... Goodbye!"; exit 1
-         fi
-  fi
+  # copy script to /storage/.opt/bin, chmod +x 
 
-  # modifying conkyrc with $HOST
-    echo -e "\nmodifying coreelec-conkyrc with ${HOST}"
-    sed  -i -e "s/<HOST>/${HOST}/g" ./coreelec-conkyrc
+  # found existing script
+    if ssh root@"${HOST}" '[ -r /storage/.opt/bin/coreelec-conky.sh ]'
+    then # file exists
+           read -rp "coreelec-conky.sh script exists, replace [y/N] " reply
+              case "${reply}" in
+                  [yY][eE][sS]|[yY]) 
+                      echo "moving script to coreelec-conky.sh.bak"
+                      ssh root@"${HOST}" mv /storage/.opt/bin/coreelec-conky.sh /storage/.opt/bin/coreelec-conky.sh.bak
+                      ;;
+                  *)
+                      echo "Overwriting existing coreelec-conky.sh script"
+                      ;;
+              esac
+    fi
 
  # copy script and make executable 
-   echo "copying and chmoding file"
+   echo "copying coreelec-conky.sh and setting execute bit"
    scp ./coreelec-conky.sh  root@"${HOST}":/storage/.opt/bin/
    ssh root@"${HOST}" 'chmod +x /storage/.opt/bin/coreelec-conky.sh'
 
- # copy conky config to home/.conky
-   [ -d ~/.conky ] \
-     || { echo "creating directory ~/.conky/"; mkdir ~/.conky; }
-   [ -f ~/.conky/coreelec-conkyrc ] \
-     || { echo "adding coreelec-conkyrc to ~/.conky/"; cp ./coreelec-conkyrc ~/.conky/; }
+ # install conkyrc
 
- # run conky 
-   echo " Now run: conky -c ~/.conky/coreelec-conkyrc"
-  conky -c ~/.conky/coreelec-conkyrc
+   # modifying conkyrc with $HOST
+     echo -e "\nmodifying coreelec-conkyrc with ${HOST}"
+     sed  -i -e "s/<HOST>/${HOST}/g" ./coreelec-conkyrc
+
+   read -rp "Do you wish to install and run conky on this computer?  [y/N] " reply
+   case "${reply}" in
+        [yY][eE][sS]|[yY])
+
+            # copy conky config to home/.conky
+            [ -d ~/.conky ] \
+            || { echo "creating directory ~/.conky/"; mkdir ~/.conky; }
+            [ -f ~/.conky/coreelec-conkyrc ] \
+            || { echo "adding coreelec-conkyrc to ~/.conky/"; cp ./coreelec-conkyrc ~/.conky/; }
+
+            # run conky 
+            echo " Now run: conky -c ~/.conky/coreelec-conkyrc"
+            conky -c ~/.conky/coreelec-conkyrc
+            ;;
+        *) exit;;
+   esac
+
   exit 0

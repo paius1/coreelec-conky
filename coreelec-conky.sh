@@ -456,6 +456,10 @@ TIME_log="/tmp/time-${ALIGN:0:1}"
                         # cpu stats collated for later use
                           echo -n "" > "${cpu_stats:0:11}"
 
+                  # if no previous cpu data
+                    [ -s /tmp/stat-"${ALIGN:0: -1}" ] \
+                      || bash_REMATCH_ "${file}" "${bash_match}" "${ALIGN}" > /tmp/stat-"${ALIGN:0: -1}"
+
                   ( renice "${RENICE}" "${BASHPID}"
                     while  IFS= read -r a <&3 \
                                  && \
